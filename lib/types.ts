@@ -19,9 +19,9 @@ export interface ChatResponse {
   answer: string;
   sources: TranscriptChunk[];
   usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
   };
 }
 

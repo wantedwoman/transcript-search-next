@@ -1,10 +1,10 @@
-import { env } from '../config/env';
+import { isDev, isProd } from '../config/env';
 
 export class Logger {
   private static instance: Logger;
   private readonly prefix: string;
 
-  private constructor(prefix: string = '[TranscriptSearch]') {
+  private constructor(prefix = '[TranscriptSearch]') {
     this.prefix = prefix;
   }
 
@@ -16,33 +16,23 @@ export class Logger {
   }
 
   log(...args: any[]) {
-    if (env.isDev || env.isProd) {
-      console.log(this.prefix, ...args);
-    }
+    if (isDev || isProd) console.log(this.prefix, ...args);
   }
 
   info(...args: any[]) {
-    if (env.isDev || env.isProd) {
-      console.info(this.prefix, ...args);
-    }
+    if (isDev || isProd) console.info(this.prefix, ...args);
   }
 
   warn(...args: any[]) {
-    if (env.isDev || env.isProd) {
-      console.warn(this.prefix, ...args);
-    }
+    if (isDev || isProd) console.warn(this.prefix, ...args);
   }
 
   error(...args: any[]) {
-    if (env.isDev || env.isProd) {
-      console.error(this.prefix, ...args);
-    }
+    if (isDev || isProd) console.error(this.prefix, ...args);
   }
 
   debug(...args: any[]) {
-    if (env.isDev) {
-      console.debug(this.prefix, ...args);
-    }
+    if (isDev) console.debug(this.prefix, ...args);
   }
 }
 

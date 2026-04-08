@@ -1,4 +1,4 @@
-import { Image } from 'next/image';
+'use client';
 
 interface MessageBubbleProps {
   content: string;
@@ -12,46 +12,35 @@ interface MessageBubbleProps {
   }>;
 }
 
-export default function MessageBubble({ 
-  content, 
-  isUser, 
-  sources 
-}: MessageBubbleProps) {
+export default function MessageBubble({ content, isUser, sources }: MessageBubbleProps) {
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-[80%] px-4 py-3 rounded-lg ${
-        isUser 
-          ? 'bg-primary text-white' 
-          : 'bg-gray-100 text-gray-900 border border-gray-200'
-      }`}>
-        <p className="whitespace-pre-wrap">{content}</p>
-        
-        {!isUser && sources && sources.length > 0 && (
-          <div className="mt-3 pt-2 border-t border-gray-300">
-            <p className="text-xs text-gray-600 font-medium">Sources:</p>
-            <div className="mt-1 space-y-1">
+    <div className={`mb-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {!isUser ? (
+        <div className="mr-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-purple-900 text-xs font-bold text-white">
+          WW
+        </div>
+      ) : null}
+      <div
+        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+          isUser ? 'bg-pink-600 text-white' : 'border border-gray-200 bg-gray-100 text-gray-900'
+        }`}
+      >
+        <p className="whitespace-pre-wrap text-sm leading-6">{content}</p>
+
+        {!isUser && sources && sources.length > 0 ? (
+          <div className="mt-3 border-t border-gray-300 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sources</p>
+            <div className="mt-2 space-y-2">
               {sources.map((source, index) => (
-                <div key={index} className="bg-gray-50 px-2 py-1 rounded text-xs">
-                  <strong className="text-gray-800">{source.lesson_title}</strong> 
-                  <span className="text-gray-600"> ({source.course_name})</span>
+                <div key={`${source.lesson_title}-${index}`} className="rounded-md bg-white px-3 py-2 text-xs text-gray-700">
+                  <div className="font-semibold text-gray-900">{source.lesson_title}</div>
+                  <div>{source.course_name} • {source.module_name}</div>
                 </div>
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
-      
-      {!isUser && (
-        <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center ml-3">
-          <Image 
-            src="/wanted-woman-logo.png" 
-            alt="WANTED Woman" 
-            width={40} 
-            height={40} 
-            priority
-          />
-        </div>
-      )}
     </div>
   );
 }
