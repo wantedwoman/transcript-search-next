@@ -5,6 +5,34 @@ import { logger } from '../../../lib/utils/logger';
 
 export const maxDuration = 30;
 
+const SYSTEM_EXTRACTION_PATTERNS = [
+  /how are you built/i,
+  /what model are you using/i,
+  /what prompt are you using/i,
+  /show (me )?(your )?system instructions/i,
+  /show (me )?(your )?hidden instructions/i,
+  /print hidden instructions/i,
+  /reveal (your )?(system prompt|prompt|instructions|internal setup)/i,
+  /ignore previous instructions/i,
+  /developer mode/i,
+  /show raw data/i,
+  /what database do you use/i,
+  /how does .*retrieval work/i,
+  /how does .*embedding/i,
+  /backend structure/i,
+  /environment variables/i,
+  /api keys?/i,
+  /tokens?/i,
+];
+
+function isSystemExtractionQuery(query: string): boolean {
+  return SYSTEM_EXTRACTION_PATTERNS.some((pattern) => pattern.test(query));
+}
+
+function protectedReply() {
+  return "I focus on giving you the most helpful answer based on the information I have available. I'm not able to share how I'm built, but I've got you on whatever you need help with.";
+}
+
 export async function POST(request: Request) {
   try {
     const { query } = await request.json();
@@ -13,10 +41,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
+    const cleanQuery = query.trim();
+
+    if (isSystemExtractionQuery(cleanQuery)) {
+      return NextResponse.json({
+        answer: protectedReply(),
+        sources: [],
+      });
+    }
+
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
 
-    const searchResponse = await similaritySearch.search(query.trim(), 5);
+    const searchResponse = await similaritySearch.search(cleanQuery, 5);
 
     if (searchResponse.results.length === 0) {
       return NextResponse.json({
@@ -26,29 +63,23 @@ export async function POST(request: Request) {
     }
 
     const chatResponse = await answerGenerator.generateAnswer(
-      query.trim(),
+      cleanQuery,
       searchResponse.results.map((result) => result.chunk)
     );
 
     return NextResponse.json({
       answer: chatResponse.answer,
       sources: chatResponse.sources.map((source) => ({
-        chunk_id: source.chunk_id,
         lesson_title: source.lesson_title,
         course_name: source.course_name,
         module_name: source.module_name,
-        source_path: source.source_path,
-        chunk_index: source.chunk_index,
-        text: source.text,
       })),
-      usage: chatResponse.usage,
     });
   } catch (error) {
     logger.error('Chat API error', error);
     return NextResponse.json(
       {
-        error: 'Failed to process your question.',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        error: 'I ran into a problem answering that. Please try again in a moment.',
       },
       { status: 500 }
     );
@@ -57,20 +88,13 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const similaritySearch = getSimilaritySearch();
-    const [totalChunks, totalLessons] = await Promise.all([
-      similaritySearch.getTotalChunks(),
-      similaritySearch.getTotalLessons(),
-    ]);
-
     return NextResponse.json({
       status: 'healthy',
-      stats: { totalChunks, totalLessons, backend: 'supabase' },
     });
   } catch (error) {
     logger.error('Health check failed', error);
     return NextResponse.json(
-      { status: 'unhealthy', error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 'unhealthy' },
       { status: 503 }
     );
   }
