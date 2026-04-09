@@ -9,7 +9,7 @@ export class OpenRouterAnswerGenerator {
 
   constructor() {
     this.apiKey = env.OPENROUTER_API_KEY;
-    this.model = env.OPENROUTER_MODEL || 'openrouter/google/gemini-3.1-flash-lite-preview';
+    this.model = env.OPENROUTER_MODEL || 'google/gemini-3.1-flash-lite-preview';
   }
 
   async generateAnswer(question: string, contextChunks: TranscriptChunk[]): Promise<ChatResponse> {
