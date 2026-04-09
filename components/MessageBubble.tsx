@@ -1,5 +1,7 @@
 'use client';
 
+import { Fragment, ReactNode } from 'react';
+
 interface MessageBubbleProps {
   content: string;
   isUser: boolean;
@@ -7,35 +9,90 @@ interface MessageBubbleProps {
     lesson_title: string;
     course_name: string;
     module_name: string;
-    chunk_index: number;
-    text: string;
   }>;
+}
+
+function renderInline(text: string): ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+
+    return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
+  });
+}
+
+function renderContent(content: string) {
+  const blocks = content
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  return blocks.map((block, index) => {
+    const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+    const isBulletList = lines.every((line) => /^([-*]|\d+\.)\s+/.test(line) || /^\*\*[^*]+\*\*$/.test(line));
+
+    if (isBulletList) {
+      return (
+        <div key={index} className="mb-4">
+          <ul className="space-y-2 pl-5 text-sm leading-7">
+            {lines.map((line, lineIndex) => {
+              const cleaned = line.replace(/^([-*]|\d+\.)\s+/, '').trim();
+              return <li key={lineIndex}>{renderInline(cleaned)}</li>;
+            })}
+          </ul>
+        </div>
+      );
+    }
+
+    if (lines.length === 1 && /:$/.test(lines[0])) {
+      return (
+        <h3 key={index} className="mb-3 mt-5 text-sm font-semibold uppercase tracking-[0.12em] text-[#8b4f6d] first:mt-0">
+          {lines[0]}
+        </h3>
+      );
+    }
+
+    return (
+      <div key={index} className="mb-4 space-y-3 text-sm leading-7">
+        {lines.map((line, lineIndex) => (
+          <p key={lineIndex}>{renderInline(line)}</p>
+        ))}
+      </div>
+    );
+  });
 }
 
 export default function MessageBubble({ content, isUser, sources }: MessageBubbleProps) {
   return (
-    <div className={`mb-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`mb-6 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       {!isUser ? (
-        <div className="mr-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-purple-900 text-xs font-bold text-white">
+        <div className="mr-3 mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#4d1d57] text-xs font-bold text-white shadow-sm">
           WW
         </div>
       ) : null}
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isUser ? 'bg-pink-600 text-white' : 'border border-gray-200 bg-gray-100 text-gray-900'
+        className={`max-w-[85%] rounded-[24px] px-5 py-4 sm:px-6 ${
+          isUser
+            ? 'bg-[#ff7095] text-white shadow-[0_12px_30px_rgba(255,112,149,0.18)]'
+            : 'border border-[#f0d7e4] bg-[#fffafc] text-[#332630] shadow-[0_10px_30px_rgba(77,29,87,0.05)]'
         }`}
       >
-        <p className="whitespace-pre-wrap text-sm leading-6">{content}</p>
+        <div className={isUser ? 'text-sm leading-7' : 'text-sm leading-7 text-[#382933]'}>{renderContent(content)}</div>
 
         {!isUser && sources && sources.length > 0 ? (
-          <div className="mt-3 border-t border-gray-300 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sources</p>
-            <div className="mt-2 space-y-2">
+          <div className="mt-5 border-t border-[#efd8e4] pt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9d7188]">Sources</p>
+            <div className="mt-2 flex flex-wrap gap-2">
               {sources.map((source, index) => (
-                <div key={`${source.lesson_title}-${index}`} className="rounded-md bg-white px-3 py-2 text-xs text-gray-700">
-                  <div className="font-semibold text-gray-900">{source.lesson_title}</div>
-                  <div>{source.course_name} • {source.module_name}</div>
-                </div>
+                <span
+                  key={`${source.lesson_title}-${index}`}
+                  className="rounded-full border border-[#edd6e3] bg-white px-3 py-1 text-xs text-[#7a5a6d]"
+                >
+                  {source.lesson_title}
+                </span>
               ))}
             </div>
           </div>
