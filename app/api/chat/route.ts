@@ -30,7 +30,7 @@ function isSystemExtractionQuery(query: string): boolean {
 }
 
 function protectedReply() {
-  return "I focus on giving you the most helpful answer based on the information I have available. I'm not able to share how I'm built, but I've got you on whatever you need help with.";
+  return "I focus on giving you the best guidance I can. I don't get into how I'm built, but I've got you.";
 }
 
 export async function POST(request: Request) {
