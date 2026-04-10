@@ -135,6 +135,8 @@ After login, the user should not be dropped directly into a raw chat interface.
 
 Instead, the product should present a light welcome/home screen first.
 
+In Phase 1, this welcome/home screen should be its own route, not just an initial state inside the chat route.
+
 This screen may include:
 - warm greeting
 - optional starter prompts
@@ -166,6 +168,12 @@ Conversation history should:
 - feel subtle and secondary
 - not dominate the interface like a dashboard
 
+Session titles should:
+- be auto-generated from the first user message
+- be short and readable
+- never be empty or untitled
+- not support manual editing in Phase 1
+
 ## 6. Data Model
 
 ### 6.1 `auth.users`
@@ -188,10 +196,16 @@ Purpose: group conversations into distinct threads.
 Likely fields:
 - `id`
 - `user_id`
-- `title` (nullable)
+- `title`
 - `created_at`
 - `updated_at`
 - `metadata` (nullable, optional)
+
+Title rules for Phase 1:
+- generate the title automatically from the first user message
+- keep the title short and readable
+- do not allow empty or untitled sessions
+- do not support manual title editing
 
 ### 6.4 `chat_messages`
 Purpose: store the conversation turns.
@@ -228,6 +242,8 @@ The intended flow is:
 5. brain returns Suzy’s answer
 6. app stores the assistant answer in `chat_messages`
 7. UI renders the answer in premium coaching format
+
+Response delivery should stream live in Phase 1 rather than waiting for full completion before rendering.
 
 ### 7.4 Output behavior rules
 The product response layer must ensure answers are presented as:
@@ -275,10 +291,11 @@ Phase 1 delivers:
 - public landing page for **Meet Suzy 💜**
 - magic-link login
 - logged-in member app shell
-- welcome screen before chat
+- a separate welcome/home route before chat
 - persistent user-owned conversation history
+- auto-generated short session titles from the first user message
 - product server flow that wraps the existing brain
-- premium answer rendering
+- live-streaming answer rendering
 - no visible source display in the user-facing app
 - mobile-friendly UI
 - updated project docs
@@ -323,11 +340,12 @@ Phase 1 is only complete if all of the following are true:
 4. magic-link auth works
 5. the user can start and continue chats
 6. sessions and messages persist correctly
-7. brain answers flow through the new experience correctly
-8. answers read cleanly and feel on-brand
-9. no visible source presentation appears in the UI
-10. mobile experience feels good
-11. docs are current
+7. session titles are auto-generated correctly from the first user message
+8. brain answers flow through the new experience correctly
+9. answers stream and read cleanly and feel on-brand
+10. no visible source presentation appears in the UI
+11. mobile experience feels good
+12. docs are current
 
 ## 14. Done Definition
 
