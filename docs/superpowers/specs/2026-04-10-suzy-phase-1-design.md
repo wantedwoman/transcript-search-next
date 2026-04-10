@@ -72,7 +72,7 @@ This product layer includes:
 - public landing page for **Meet Suzy 💜**
 - magic-link auth
 - logged-in member experience
-- welcome screen before chat
+- initial logged-in welcome state before chat
 - user-owned session persistence
 - premium answer presentation
 - mobile-friendly UI
@@ -133,13 +133,14 @@ Rationale:
 ### 5.3 Post-login welcome experience
 After login, the user should not be dropped directly into a raw chat interface.
 
-Instead, the product should present a light welcome/home screen first.
+Instead, the product should present a light welcome/home state first.
 
-In Phase 1, this welcome/home screen should be its own route, not just an initial state inside the chat route.
+In Phase 1, this welcome/home experience should be part of the initial logged-in state, not a separate route. It should be displayed when no active session exists.
 
-This screen may include:
+This state should include:
 - warm greeting
-- optional starter prompts
+- recent conversations
+- starter prompts for new chats
 - a clear start-conversation action
 - subtle reassurance that conversations are saved privately
 
@@ -169,7 +170,7 @@ Conversation history should:
 - not dominate the interface like a dashboard
 
 Session titles should:
-- be auto-generated from the first user message
+- be generated server-side from the first user message and stored on the session
 - be short and readable
 - never be empty or untitled
 - not support manual editing in Phase 1
@@ -202,7 +203,8 @@ Likely fields:
 - `metadata` (nullable, optional)
 
 Title rules for Phase 1:
-- generate the title automatically from the first user message
+- generate the title server-side from the first user message
+- store the generated title on the session
 - keep the title short and readable
 - do not allow empty or untitled sessions
 - do not support manual title editing
@@ -243,7 +245,7 @@ The intended flow is:
 6. app stores the assistant answer in `chat_messages`
 7. UI renders the answer in premium coaching format
 
-Response delivery should stream live in Phase 1 rather than waiting for full completion before rendering.
+Phase 1 should use non-streaming responses. The UI should show a loading state while the full answer is being generated, then render the completed answer once it returns. Streaming may be considered in a later phase.
 
 ### 7.4 Output behavior rules
 The product response layer must ensure answers are presented as:
@@ -291,11 +293,11 @@ Phase 1 delivers:
 - public landing page for **Meet Suzy 💜**
 - magic-link login
 - logged-in member app shell
-- a separate welcome/home route before chat
+- an initial logged-in welcome/home state before chat
 - persistent user-owned conversation history
-- auto-generated short session titles from the first user message
+- server-generated short session titles from the first user message
 - product server flow that wraps the existing brain
-- live-streaming answer rendering
+- non-streaming answer rendering with a loading state
 - no visible source display in the user-facing app
 - mobile-friendly UI
 - updated project docs
@@ -340,12 +342,13 @@ Phase 1 is only complete if all of the following are true:
 4. magic-link auth works
 5. the user can start and continue chats
 6. sessions and messages persist correctly
-7. session titles are auto-generated correctly from the first user message
+7. session titles are generated server-side correctly from the first user message
 8. brain answers flow through the new experience correctly
-9. answers stream and read cleanly and feel on-brand
+9. answers render fully after completion, use a loading state, and feel on-brand
 10. no visible source presentation appears in the UI
-11. mobile experience feels good
-12. docs are current
+11. the initial logged-in welcome state shows recent conversations and starter prompts appropriately
+12. mobile experience feels good
+13. docs are current
 
 ## 14. Done Definition
 
