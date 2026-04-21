@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-on-primary: #571447;
+  --color-error-container: #93000a;
+  --color-on-secondary-container: #d9a9a9;
+  --color-on-secondary-fixed: #2f1314;
+  --color-on-secondary: #472828;
+  --color-on-tertiary-fixed-variant: #574500;
+  --color-primary-fixed-dim: #ffade1;
+  --color-tertiary-container: #cba72f;
+  --color-primary: #ff7095;
+  --color-on-error: #690005;
+  --color-outline: #978d9d;
+  --color-surface-variant: #3a3339;
+  --color-tertiary: #e9c349;
+  --color-on-primary-fixed-variant: #722c5f;
+  --color-secondary: #ecbaba;
+  --color-on-secondary-fixed-variant: #613d3e;
+  --color-surface-container-lowest: #120c12;
+  --color-on-error-container: #ffdad6;
+  --color-primary-container: #581648;
+  --color-primary-fixed: #ffd8ed;
+  --color-inverse-primary: #8e4478;
+  --color-tertiary-fixed: #ffe088;
+  --color-error: #ffb4ab;
+  --color-surface-bright: #3e373e;
+  --color-secondary-container: #613d3e;
+  --color-tertiary-fixed-dim: #e9c349;
+  --color-surface-dim: #171117;
+  --color-surface-tint: #ff7095;
+  --color-surface-container-highest: #3a3339;
+  --color-on-surface: #ecdfe8;
+  --color-on-primary-container: #d27eb5;
+  --color-on-primary-fixed: #3b002f;
+  --color-surface-container-low: #201a20;
+  --color-on-tertiary-container: #4e3d00;
+  --color-inverse-on-surface: #352e35;
+  --color-on-background: #ecdfe8;
+  --color-surface-container: #241e24;
+  --color-surface: #171117;
+  --color-background: #171117;
+  --color-secondary-fixed: #ffdad9;
+  --color-secondary-fixed-dim: #ecbaba;
+  --color-outline-variant: #4c4451;
+  --color-on-tertiary: #3c2f00;
+  --color-surface-container-high: #2f282e;
+  --color-inverse-surface: #ecdfe8;
+  --color-on-tertiary-fixed: #241a00;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-headline: "Noto Serif", serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+
+  --radius-lg: 2rem;
+  --radius-md: 1rem;
+  --radius-xl: 3rem;
+  --radius: 1rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #171117;
+  font-family: var(--font-body);
+  color: var(--color-on-surface);
+  min-height: max(884px, 100dvh);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(88, 22, 72, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(233, 195, 73, 0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(255, 112, 149, 0.08) 0%, transparent 50%),
+    linear-gradient(180deg, #171117 0%, #1d1520 50%, #171117 100%);
+  background-attachment: fixed;
+}
+
+.glass-panel {
+  background: rgba(47, 40, 46, 0.35);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+}
+
+.glass-panel-solid {
+  background: rgba(36, 30, 36, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.velvet-glow {
+  background: radial-gradient(circle at top left, rgba(88, 22, 72, 0.2), transparent 70%);
+}
+
+.message-shadow {
+  box-shadow: 0 10px 30px -10px rgba(88, 22, 72, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
 }

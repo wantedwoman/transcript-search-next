@@ -1,5 +1,5 @@
-import ChatWindow from '../components/ChatWindow';
+import LoginScreen from '../components/LoginScreen';
 
 export default function Home() {
-  return <ChatWindow />;
+  return <LoginScreen />;
 }
