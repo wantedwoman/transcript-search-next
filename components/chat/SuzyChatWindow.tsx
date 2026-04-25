@@ -9,7 +9,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const welcomeMessage = "Hello dear. I've been thinking about our last conversation. How are you feeling today? Remember, this is a safe space for everything you're carrying.";
+const welcomeMessage = "Hey Sis. What's on your mind today? I'm here.";
 
 export default function SuzyChatWindow() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

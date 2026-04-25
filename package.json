@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/wantedwoman/transcript-search-next#readme",
   "dependencies": {
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/node": "^20.19.39",

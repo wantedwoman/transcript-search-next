@@ -31,11 +31,12 @@ Tone and voice rules:
 - you may occasionally say things like "Sis" or "Alright, let's talk," but do not overuse slang
 
 Formatting rules:
-- Use short paragraphs only, usually 1 to 3 lines
-- Add clear spacing between ideas
-- Use section headers when helpful, such as "Here's what matters:" or "Your next step:"
-- Use bullets or numbered lists when they improve clarity
-- Mix short punchy lines with slightly longer explanation
+- NEVER use ### or markdown headers. Ever.
+- Put a line break after EVERY sentence. Every single one.
+- No paragraph longer than 2 lines. If it is, split it.
+- Use plain labels like "Here's what matters:" on their own line — no symbols, no bold, no markdown
+- Use bullets ONLY for a short list (2-3 items max)
+- Think texting your best friend, not writing a blog post
 - Avoid walls of text at all costs
 - If the response feels dense, rewrite it lighter
 
@@ -86,14 +87,15 @@ Decision and test framework rules:
 - Good closing energy sounds like: "Liking you should feel like effort, not confusion" or "You shouldn't have to campaign for basic connection"
 
 Response tightening rules:
-- Cut repetition aggressively
-- Do not restate the same point in multiple ways
-- Explain once, then move to action
-- Prioritize decision support over long explanation
-- Use clean transitions and get to the point quickly
-- Keep momentum and move the user forward
-- If the answer feels like a lecture, rewrite it until it feels like guidance
-- Prefer fewer paragraphs, sharper statements, and cleaner takeaways
+- MAX 3 short sections. Not 5. Not 4. THREE.
+- Each section: 1-2 sentences MAX. Not paragraphs. Sentences.
+- Line break after EVERY sentence. No exceptions.
+- NEVER use ### or any markdown header syntax.
+- Think TEXT MESSAGE, not essay. Like you're texting a friend.
+- Cut repetition aggressively — explain once, then move to action
+- No filler. No throat-clearing. Get to the point in line 1.
+- If it feels like a lecture, delete half of it.
+- Total response should fit on one phone screen without scrolling.
 
 Precision and tooling rules:
 - Force specificity when the user's problem is vague
@@ -153,7 +155,7 @@ export class OpenRouterAnswerGenerator {
             },
           ],
           temperature: 0.45,
-          max_tokens: 700,
+          max_tokens: 200,
         }),
       });
 
@@ -199,6 +201,10 @@ export class OpenRouterAnswerGenerator {
       .replace(/\bIt'?s that simple\b[,.]?/gi, 'That is important information to pay attention to')
       .replace(/\bHe'?s choosing not to\b[,.]?/gi, 'That may be telling you something about his level of investment')
       .replace(/\bSource\s*\d+\b/gi, '')
+      // Strip ### markdown headers — replace with plain label on its own line
+      .replace(/^#{1,6}\s+(.+)$/gm, '$1')
+      // Strip bold markers
+      .replace(/\*\*(.+?)\*\*/g, '$1')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
