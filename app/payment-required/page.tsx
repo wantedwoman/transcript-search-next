@@ -12,7 +12,6 @@ const supabase = createClient(
 export default function PaymentRequiredPage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
-  const [email, setEmail] = useState('');
 
   useEffect(() => {
     const checkSession = async () => {
@@ -21,46 +20,15 @@ export default function PaymentRequiredPage() {
         router.push('/');
         return;
       }
-      setEmail(session.user.email || '');
-
-      // Check user status
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('status')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profile?.status === 'active') {
-        router.push('/chat');
-        return;
-      }
-
       setChecking(false);
-
-      // Poll every 10 seconds to check if status changed
-      const interval = setInterval(async () => {
-        const { data: p } = await supabase
-          .from('user_profiles')
-          .select('status')
-          .eq('id', session.user.id)
-          .single();
-
-        if (p?.status === 'active') {
-          clearInterval(interval);
-          router.push('/chat');
-        }
-      }, 10000);
-
-      return () => clearInterval(interval);
     };
-
     checkSession();
   }, [router]);
 
   if (checking) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#4D1D57] via-[#2D1035] to-[#1A0A20] flex items-center justify-center">
-        <div className="text-white/60 text-lg">Checking your account...</div>
+        <div className="text-white/60 text-lg">Loading...</div>
       </div>
     );
   }
@@ -83,7 +51,7 @@ export default function PaymentRequiredPage() {
           </div>
           <h2 className="text-2xl font-bold text-white">Your Subscription Needs Attention</h2>
           <p className="text-white/60 leading-relaxed">
-            Hey Sis, it looks like your payment method needs updating. 
+            Hey Sis, it looks like your payment method needs updating.
             Update your card to keep using Suzy AI.
           </p>
         </div>
@@ -99,7 +67,7 @@ export default function PaymentRequiredPage() {
             Update Payment Method
           </a>
           <p className="text-white/40 text-sm">
-            Once you update your card, you&apos;ll be redirected back to Suzy AI automatically.
+            Once you update your card, come back and log in again.
           </p>
         </div>
 
