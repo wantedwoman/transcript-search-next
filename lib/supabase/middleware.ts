@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import type { CookieOptions } from '@supabase/ssr';
 
+const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -58,19 +60,19 @@ export async function updateSession(request: NextRequest) {
   // Refresh the session so it doesn't expire
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Protected routes: /chat requires authentication
+  // Route checks
   const isChatRoute = request.nextUrl.pathname.startsWith('/chat');
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
+  const isApiWebhookRoute = request.nextUrl.pathname.startsWith('/api/webhooks');
 
-  // If user is not authenticated and trying to access protected routes
-  if (!user && isChatRoute) {
-    return NextResponse.redirect(new URL('/', request.url));
+  // Webhook routes don't require auth — they have their own signature verification
+  if (isApiWebhookRoute) {
+    return response;
   }
 
-  // If user is not authenticated and trying to access admin routes
-  if (!user && isAdminRoute) {
+  // If user is not authenticated and trying to access protected routes
+  if (!user && (isChatRoute || isAdminRoute)) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -78,15 +80,23 @@ export async function updateSession(request: NextRequest) {
   if (user && (isChatRoute || isAdminRoute)) {
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('status')
+      .select('status, email')
       .eq('user_id', user.id)
       .single();
 
+    // Revoked users can't access chat or admin
     if (!profile || profile.status === 'revoked') {
-      // Revoked users get redirected to login with a message
       const redirectUrl = new URL('/', request.url);
       redirectUrl.searchParams.set('error', 'access_revoked');
       return NextResponse.redirect(redirectUrl);
+    }
+
+    // Admin routes: only specific emails
+    if (isAdminRoute) {
+      const userEmail = (profile.email || user.email || '').toLowerCase();
+      if (!ADMIN_EMAILS.includes(userEmail)) {
+        return NextResponse.redirect(new URL('/chat', request.url));
+      }
     }
   }
 
