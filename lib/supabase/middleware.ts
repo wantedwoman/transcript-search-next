@@ -84,11 +84,9 @@ export async function updateSession(request: NextRequest) {
       .eq('user_id', user.id)
       .single();
 
-    // Revoked users can't access chat or admin
+    // Revoked users can't access chat or admin — redirect to payment required
     if (!profile || profile.status === 'revoked') {
-      const redirectUrl = new URL('/', request.url);
-      redirectUrl.searchParams.set('error', 'access_revoked');
-      return NextResponse.redirect(redirectUrl);
+      return NextResponse.redirect(new URL('/payment-required', request.url));
     }
 
     // Admin routes: only specific emails
