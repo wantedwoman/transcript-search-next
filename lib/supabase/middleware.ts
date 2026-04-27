@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import type { CookieOptions } from '@supabase/ssr';
+import { checkGHLTags } from '../ghl/check-tags';
 
 const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
 
@@ -76,7 +77,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // If user is authenticated, check if their profile is active
+  // If user is authenticated, check access
   if (user && (isChatRoute || isAdminRoute)) {
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -89,9 +90,22 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(new URL('/payment-required', request.url));
     }
 
+    // GHL tag check for /chat access — source of truth is now GHL tags, not webhooks
+    if (isChatRoute) {
+      const userEmail = (profile?.email || user.email || '').trim().toLowerCase();
+      if (userEmail) {
+        const tagResult = await checkGHLTags(userEmail);
+
+        if (!tagResult.hasAccess) {
+          // Cancellation tag found — redirect to payment required
+          return NextResponse.redirect(new URL('/payment-required', request.url));
+        }
+      }
+    }
+
     // Admin routes: only specific emails
     if (isAdminRoute) {
-      const userEmail = (profile.email || user.email || '').toLowerCase();
+      const userEmail = (profile?.email || user.email || '').toLowerCase();
       if (!ADMIN_EMAILS.includes(userEmail)) {
         return NextResponse.redirect(new URL('/chat', request.url));
       }

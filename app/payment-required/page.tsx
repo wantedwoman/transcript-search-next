@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export default function PaymentRequiredPage() {
   const router = useRouter();
@@ -15,7 +17,7 @@ export default function PaymentRequiredPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabaseClient().auth.getSession();
       if (!session) {
         router.push('/');
         return;
@@ -69,6 +71,17 @@ export default function PaymentRequiredPage() {
           <p className="text-white/40 text-sm">
             Once you update your card, come back and log in again.
           </p>
+
+          {/* Back to Login */}
+          <button
+            onClick={async () => {
+              await getSupabaseClient().auth.signOut();
+              router.push('/');
+            }}
+            className="inline-block w-full border border-white/20 hover:border-white/40 text-white/60 hover:text-white font-medium py-3 px-8 rounded-xl transition-all duration-300"
+          >
+            Back to Login
+          </button>
         </div>
 
         {/* Footer */}
