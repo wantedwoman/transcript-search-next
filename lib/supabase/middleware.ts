@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import type { CookieOptions } from '@supabase/ssr';
-import { checkGHLTags } from '../ghl/check-tags';
+import { checkGhlTags } from '../ghl/check-tags';
 
 const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
 
@@ -94,7 +94,7 @@ export async function updateSession(request: NextRequest) {
     if (isChatRoute) {
       const userEmail = (profile?.email || user.email || '').trim().toLowerCase();
       if (userEmail) {
-        const tagResult = await checkGHLTags(userEmail);
+        const tagResult = await checkGhlTags(userEmail);
 
         if (!tagResult.hasAccess) {
           // Cancellation tag found — redirect to payment required

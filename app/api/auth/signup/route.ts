@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkGhlTags } from '@/lib/ghl/check-tags';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,8 +28,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Create the Supabase user
+    const supabase = createServiceRoleClient();
     const { data: userData, error: createError } =
-      await supabaseAdmin.auth.admin.createUser({
+      await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
