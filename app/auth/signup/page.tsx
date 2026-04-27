@@ -1,48 +1,139 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 
 export default function SignupPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong.');
+      } else {
+        setSuccess(true);
+        // Redirect to chat after a short delay so the user sees the success state
+        setTimeout(() => {
+          window.location.href = '/chat';
+        }, 1500);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="bg-surface text-on-surface font-body selection:bg-primary/30 selection:text-primary min-h-screen flex flex-col items-center justify-center overflow-x-hidden">
-      {/* Background Effects */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-surface via-surface-container-lowest to-surface"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface-container-low/40 to-surface"></div>
-        <div className="absolute top-1/4 right-1/4 w-[500px] h-[500px] bg-primary/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/3 left-1/4 w-[400px] h-[400px] bg-tertiary/20 rounded-full blur-3xl"></div>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-[#2D0A31] px-4">
+      <div className="w-full max-w-md p-8">
+        <h1 className="text-4xl font-bold text-center text-white mb-2">
+          Join the Inner Circle
+        </h1>
+        <p className="text-center text-[#F8A4D8] mb-8">
+          Your exclusive access to Suzy AI.
+        </p>
 
-      {/* Main Content */}
-      <main className="relative z-10 w-full max-w-md px-6 text-center space-y-8">
-        <header className="space-y-4">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-3xl font-headline italic font-bold tracking-tighter text-primary">Suzy AI</span>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#F8A4D8] mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-lg bg-[#1A0A1E] border border-[#4D1D57] text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF7095]"
+              placeholder="you@example.com"
+            />
           </div>
-          <div className="space-y-2">
-            <span className="material-symbols-outlined text-5xl text-tertiary">lock</span>
-            <h1 className="text-3xl md:text-4xl font-headline font-bold text-on-surface leading-tight tracking-tight">
-              Access by <span className="text-primary italic">Invitation Only</span>
-            </h1>
+
+          <div>
+            <label className="block text-sm font-medium text-[#F8A4D8] mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-lg bg-[#1A0A1E] border border-[#4D1D57] text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF7095]"
+              placeholder="••••••••"
+            />
           </div>
-        </header>
 
-        <div className="glass-panel rounded-lg p-8 border border-outline-variant/10">
-          <p className="text-secondary text-lg font-light leading-relaxed">
-            Suzy AI is an exclusive experience for members of The Real Love Network.
-          </p>
-          <p className="text-secondary/70 text-sm mt-4 leading-relaxed">
-            If you&apos;re a member and need access, please contact your coach or check your email for an invitation link.
-          </p>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-[#F8A4D8] mb-1">
+              Confirm Password
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-lg bg-[#1A0A1E] border border-[#4D1D57] text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#FF7095]"
+              placeholder="••••••••"
+            />
+          </div>
 
-        <div className="space-y-4">
+          {error && (
+            <div className="text-red-400 text-sm text-center">{error}</div>
+          )}
+
+          {success && (
+            <div className="text-green-400 text-sm text-center">
+              Account created! Redirecting to chat...
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-lg bg-[#FF7095] text-white font-semibold hover:bg-[#E11D69] transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Creating account...' : 'Create Account'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
           <Link
             href="/"
-            className="inline-block w-full bg-surface-container-high hover:bg-surface-bright py-4 rounded-xl text-on-surface font-bold text-lg border border-outline-variant/20 transition-all duration-300 hover:scale-[1.02] active:scale-95"
+            className="text-sm text-[#F8A4D8] hover:text-[#FF7095]"
           >
-            ← Back to Login
+            Back to Login
           </Link>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
