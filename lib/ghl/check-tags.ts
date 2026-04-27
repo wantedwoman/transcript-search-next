@@ -1,91 +1,65 @@
-/**
- * GHL Tag Checker — validates Suzy AI access by checking GHL contact tags.
- *
- * Instead of relying on webhooks to update Supabase on tag changes,
- * we check GHL directly at access time so the source of truth is always GHL.
- *
- * Access rules:
- *  - "Suzy AI Cancellation" tag → blocked (redirect to /payment-required)
- *  - "Suzy AI Subscriber" tag → allowed
- *  - Contact not found in GHL → allowed (not all users are in GHL yet)
- */
+import { GHL_API_KEY, GHL_LOCATION_ID } from '../env';
 
-const GHL_API_BASE = 'https://services.leadconnectorhq.com';
+const GHL_BASE_URL = 'https://services.leadconnectorhq.com';
 
-export interface GHLTagCheckResult {
-  /** Whether the user should be granted access to /chat */
-  hasAccess: boolean;
-  /** Tags found on the GHL contact (empty if not found) */
-  tags: string[];
-  /** Why access was denied, if applicable */
-  reason?: 'cancellation_tag' | 'no_subscriber_tag';
-}
-
-/**
- * Look up a contact in GHL by email and return their tags + access status.
- */
-export async function checkGHLTags(email: string): Promise<GHLTagCheckResult> {
-  const apiKey = process.env.GHL_API_KEY;
-  const locationId = process.env.GHL_LOCATION_ID;
-
-  if (!apiKey || !locationId) {
-    // Missing config — fail open so we don't lock everyone out
-    console.warn('[GHL] Missing GHL_API_KEY or GHL_LOCATION_ID — allowing access');
-    return { hasAccess: true, tags: [], reason: undefined };
-  }
-
+export async function checkGhlTags(email: string): Promise<{ hasAccess: boolean; tags: string[] }> {
   try {
-    const url = `${GHL_API_BASE}/v1/contacts/search?query=${encodeURIComponent(email)}&location_id=${locationId}`;
+    // Search for contact by email using GHL contacts/search endpoint
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
-    const res = await fetch(url, {
-      method: 'GET',
+    const searchRes = await fetch(`${GHL_BASE_URL}/contacts/search`, {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${GHL_API_KEY}`,
+        'Content-Type': 'application/json',
         Version: '2021-07-28',
-        Accept: 'application/json',
       },
+      body: JSON.stringify({
+        locationId: GHL_LOCATION_ID,
+        page: 1,
+        pageLimit: 10,
+        filters: [
+          {
+            field: 'email',
+            operator: 'eq',
+            value: email,
+          },
+        ],
+      }),
+      signal: controller.signal,
     });
 
-    if (!res.ok) {
-      console.error(`[GHL] API error ${res.status}: ${res.statusText}`);
-      // Fail open on API errors — don't block users because GHL is down
-      return { hasAccess: true, tags: [], reason: undefined };
+    clearTimeout(timeout);
+
+    if (!searchRes.ok) {
+      const errorText = await searchRes.text().catch(() => 'Unknown error');
+      console.error('GHL search failed:', searchRes.status, errorText);
+      // FAIL OPEN — allow access if GHL API fails
+      return { hasAccess: true, tags: [] };
     }
 
-    const body = await res.json();
+    const data = await searchRes.json();
+    const contacts = data?.contacts || [];
 
-    // GHL search returns { contacts: [...] }
-    const contacts = body.contacts ?? [];
-
-    // Find exact email match (GHL search is fuzzy)
-    const contact = contacts.find(
-      (c: Record<string, unknown>) =>
-        String(c.email ?? '').toLowerCase().trim() === email.toLowerCase().trim()
-    );
-
-    if (!contact) {
-      // Not in GHL → allow (not all users are in GHL yet)
-      return { hasAccess: true, tags: [], reason: undefined };
+    if (!contacts.length) {
+      // No contact found — FAIL OPEN (allow access for now, not everyone is in GHL yet)
+      return { hasAccess: true, tags: [] };
     }
 
-    const tags: string[] = Array.isArray(contact.tags) ? contact.tags : [];
+    const contact = contacts[0];
+    const tags: string[] = (contact.tags || []).map((t: any) =>
+      typeof t === 'string' ? t : t?.name || ''
+    ).filter(Boolean);
 
-    // Cancellation tag = blocked
-    if (tags.includes('Suzy AI Cancellation')) {
-      return { hasAccess: false, tags, reason: 'cancellation_tag' };
-    }
+    // ONLY block if they have the cancellation tag
+    const hasCancellation = tags.some(t => t.toLowerCase() === 'suzy ai cancellation');
+    const hasAccess = !hasCancellation;
 
-    // Subscriber tag = allowed
-    if (tags.includes('Suzy AI Subscriber')) {
-      return { hasAccess: true, tags, reason: undefined };
-    }
-
-    // Has a GHL contact but neither tag — allow for now
-    // (Future: could restrict to only tagged subscribers)
-    return { hasAccess: true, tags, reason: undefined };
+    return { hasAccess, tags };
   } catch (err) {
-    console.error('[GHL] Error checking tags:', err);
-    // Fail open on exceptions
-    return { hasAccess: true, tags: [], reason: undefined };
+    console.error('Error checking GHL tags:', err);
+    // FAIL OPEN — allow access if GHL check fails
+    return { hasAccess: true, tags: [] };
   }
 }
