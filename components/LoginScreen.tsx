@@ -45,7 +45,7 @@ export default function LoginScreen() {
           Suzy AI
         </h1>
         <p className="text-center text-[#F8A4D8] mb-8">
-          Your relationship coach, always in your pocket.
+          Your relationship assistant, always in your pocket.
         </p>
 
         <form onSubmit={handleLogin} className="space-y-4">
