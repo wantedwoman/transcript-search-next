@@ -1,4 +1,4 @@
-import { GHL_API_KEY, GHL_LOCATION_ID } from '../env';
+import { GHL_API_KEY, GHL_LOCATION_ID } from '../config/env';
 
 const GHL_BASE_URL = 'https://services.leadconnectorhq.com';
 
