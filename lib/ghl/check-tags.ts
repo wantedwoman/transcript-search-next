@@ -1,11 +1,11 @@
-import { GHL_API_KEY, GHL_LOCATION_ID } from '../config/env';
+import { env } from '../config/env';
 
 const GHL_BASE_URL = 'https://services.leadconnectorhq.com';
 
 export async function checkGhlTags(email: string): Promise<{ hasAccess: boolean; tags: string[] }> {
   try {
-    const apiKey = GHL_API_KEY;
-    const locationId = GHL_LOCATION_ID;
+    const apiKey = env.GHL_API_KEY;
+    const locationId = env.GHL_LOCATION_ID;
 
     if (!apiKey || !locationId) {
       console.warn('[GHL] Missing GHL_API_KEY or GHL_LOCATION_ID — allowing access');
