@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import type { CookieOptions } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { checkGhlTags } from '../ghl/check-tags';
 
 const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
@@ -77,9 +78,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // If user is authenticated, check access
+  // If user is authenticated, check access via admin client (bypasses RLS in middleware)
   if (user && (isChatRoute || isAdminRoute)) {
-    const { data: profile } = await supabase
+    // Use service role client for profile check — middleware is server-only, safe to bypass RLS
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+
+    const { data: profile } = await adminSupabase
       .from('user_profiles')
       .select('status, email')
       .eq('user_id', user.id)
