@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -15,11 +16,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = createClient();
 
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -28,11 +25,13 @@ export default function LoginScreen() {
 
       if (error) {
         setError(error.message);
+        console.error('Login error:', error);
       } else {
         window.location.href = '/chat';
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
+      console.error('Login exception:', err);
     } finally {
       setLoading(false);
     }
