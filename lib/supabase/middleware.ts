@@ -67,6 +67,11 @@ export async function updateSession(request: NextRequest) {
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
   const isApiWebhookRoute = request.nextUrl.pathname.startsWith('/api/webhooks');
+  const isProfileRoute = request.nextUrl.pathname.startsWith('/profile');
+  const isInsightsRoute = request.nextUrl.pathname.startsWith('/insights');
+
+  // Protected routes that require auth
+  const isProtectedRoute = isChatRoute || isAdminRoute || isProfileRoute || isInsightsRoute;
 
   // Webhook routes don't require auth — they have their own signature verification
   if (isApiWebhookRoute) {
@@ -74,12 +79,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   // If user is not authenticated and trying to access protected routes
-  if (!user && (isChatRoute || isAdminRoute)) {
+  if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
   // If user is authenticated, check access via admin client (bypasses RLS in middleware)
-  if (user && (isChatRoute || isAdminRoute)) {
+  if (user && isProtectedRoute) {
     // Use service role client for profile check — middleware is server-only, safe to bypass RLS
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

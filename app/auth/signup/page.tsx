@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,18 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [refCode, setRefCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Capture referral code from URL query param
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      setRefCode(ref);
+      // Store in cookie so it persists through auth flow
+      document.cookie = `suzy_ref=${ref}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +45,7 @@ export default function SignupPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, refCode }),
       });
 
       const data = await res.json();
@@ -41,6 +54,8 @@ export default function SignupPage() {
         setError(data.error || 'Something went wrong.');
       } else {
         setSuccess(true);
+        // Clear referral cookie after successful signup
+        document.cookie = 'suzy_ref=; path=/; max-age=0';
         // Redirect to chat after a short delay so the user sees the success state
         setTimeout(() => {
           window.location.href = '/chat';
@@ -62,6 +77,14 @@ export default function SignupPage() {
         <p className="text-center text-[#F8A4D8] mb-8">
           Your exclusive access to Suzy AI.
         </p>
+
+        {refCode && (
+          <div className="mb-6 text-center">
+            <p className="text-sm text-[#F8A4D8]">
+              🎉 You were referred! Welcome aboard.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

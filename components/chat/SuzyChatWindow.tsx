@@ -212,12 +212,12 @@ export default function SuzyChatWindow() {
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
         </a>
         {/* Insights Tab */}
-        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="#">
+        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/insights">
           <span className="material-symbols-outlined text-2xl">auto_awesome</span>
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
         </a>
         {/* Profile Tab */}
-        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="#">
+        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/profile">
           <span className="material-symbols-outlined text-2xl">person</span>
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
         </a>

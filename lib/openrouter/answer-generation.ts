@@ -155,7 +155,7 @@ export class OpenRouterAnswerGenerator {
             },
           ],
           temperature: 0.45,
-          max_tokens: 200,
+          max_tokens: 800,
         }),
       });
 

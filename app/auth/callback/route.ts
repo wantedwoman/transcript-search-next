@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error) {
+      // Check for referral code in the URL (persisted via cookie during signup)
+      // The referral tracking is handled during the signup API call
       return response;
     }
   }
