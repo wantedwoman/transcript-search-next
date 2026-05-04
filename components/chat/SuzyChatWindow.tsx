@@ -4,6 +4,13 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import PatternBanner from './PatternBanner';
 import PatternDrawer from './PatternDrawer';
+import DatePrepModal from './DatePrepModal';
+import MoodSelector from './MoodSelector';
+import { SuzyMood, DEFAULT_MOOD, MOOD_LABELS, MOOD_EMOJI } from '@/lib/mood/mood-prompts';
+import DraftComposer from './DraftComposer';
+import DateAuditModal from './DateAuditModal';
+import PhotoFeedbackModal from './PhotoFeedbackModal';
+import CourseSuggestion from './CourseSuggestion';
 import { UserPattern } from '@/lib/pattern-detection/types';
 
 interface ChatMessage {
@@ -11,6 +18,8 @@ interface ChatMessage {
   content: string;
   isUser: boolean;
   timestamp: Date;
+  mood?: SuzyMood;
+  courseSuggestion?: { name: string; url: string; confidence: number } | null;
 }
 
 const welcomeMessage = "Hey Sis. What's on your mind today? I'm here.";
@@ -20,10 +29,21 @@ export default function SuzyChatWindow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [selectedMood, setSelectedMood] = useState<SuzyMood>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('suzy-mood');
+      if (saved && saved in MOOD_LABELS) return saved as SuzyMood;
+    }
+    return DEFAULT_MOOD;
+  });
   // Pattern Catcher state
   const [latestPattern, setLatestPattern] = useState<UserPattern | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [patternDrawerOpen, setPatternDrawerOpen] = useState(false);
+  const [datePrepOpen, setDatePrepOpen] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [dateAuditOpen, setDateAuditOpen] = useState(false);
+  const [photoFeedbackOpen, setPhotoFeedbackOpen] = useState(false);
   
   // Ref to the start of the latest bot message
   const latestMessageRef = useRef<HTMLDivElement>(null);
@@ -162,7 +182,7 @@ export default function SuzyChatWindow() {
       const response = await fetch('/api/suzy/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: userMessage.content }),
+        body: JSON.stringify({ query: userMessage.content, mode: selectedMood }),
       });
 
       const data = await response.json();
@@ -173,6 +193,8 @@ export default function SuzyChatWindow() {
         content: data.answer,
         isUser: false,
         timestamp: new Date(),
+        mood: selectedMood,
+        courseSuggestion: data.courseSuggestion || null,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -210,6 +232,7 @@ export default function SuzyChatWindow() {
       const formData = new FormData();
       formData.append('image', file);
       formData.append('query', 'Analyze my dating profile screenshot. Give me honest feedback on what works, what doesn\'t, and what I should change to attract higher quality matches.');
+      formData.append('mode', selectedMood);
 
       const response = await fetch('/api/suzy/chat', {
         method: 'POST',
@@ -224,6 +247,8 @@ export default function SuzyChatWindow() {
         content: data.answer,
         isUser: false,
         timestamp: new Date(),
+        mood: selectedMood,
+        courseSuggestion: data.courseSuggestion || null,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -249,11 +274,17 @@ export default function SuzyChatWindow() {
             <button onClick={() => setDrawerOpen(true)} className="p-2 active:scale-95 duration-200 transition-colors text-[#ecbaba] hover:text-primary">
               <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-headline font-bold italic tracking-tighter text-primary">Suzy AI</h1>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_#e9c349]"></span>
-                <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/60">Online</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_#e9c349]"></span>
+                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/60">Online</span>
+                </div>
+                <MoodSelector selectedMood={selectedMood} onMoodChange={(mood) => {
+                  setSelectedMood(mood);
+                  localStorage.setItem('suzy-mood', mood);
+                }} />
               </div>
             </div>
           </div>
@@ -283,6 +314,14 @@ export default function SuzyChatWindow() {
               <Link href="/profile" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
                 <span className="material-symbols-outlined">person</span>
                 <span className="font-label font-semibold text-lg">Profile</span>
+              </Link>
+              <Link href="/dashboard" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
+                <span className="material-symbols-outlined">monitoring</span>
+                <span className="font-label font-semibold text-lg">Love Dashboard</span>
+              </Link>
+              <Link href="/vault" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
+                <span className="material-symbols-outlined">lock</span>
+                <span className="font-label font-semibold text-lg">My Vault</span>
               </Link>
               <div className="border-t border-outline-variant/20 my-4" />
               <button onClick={() => { sessionStorage.clear(); window.location.href = '/'; }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
@@ -324,9 +363,33 @@ export default function SuzyChatWindow() {
                   >
                     <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
                   </div>
-                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40 px-2">
-                    {message.isUser ? 'You' : 'Suzy'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div className="flex items-center gap-2 px-2">
+                    <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40">
+                      {message.isUser ? 'You' : 'Suzy'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {!message.isUser && message.mood && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-white/10 border border-white/10">
+                          {MOOD_EMOJI[message.mood]} {MOOD_LABELS[message.mood]}
+                        </span>
+                      )}
+                    </span>
+                    {!message.isUser && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch('/api/suzy/vault', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ content: message.content }),
+                            });
+                            alert('Saved to Vault!');
+                          } catch {}
+                        }}
+                        className="text-[10px] text-secondary/40 hover:text-primary transition-colors font-label font-semibold uppercase tracking-widest"
+                      >
+                        Save to Vault
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -400,6 +463,38 @@ export default function SuzyChatWindow() {
             >
               <span className="material-symbols-outlined text-2xl">attach_file</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setDatePrepOpen(true)}
+              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              title="Date Prep"
+            >
+              <span className="material-symbols-outlined text-2xl">favorite</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraftOpen(true)}
+              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              title="Love Letter"
+            >
+              <span className="material-symbols-outlined text-2xl">edit_note</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateAuditOpen(true)}
+              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              title="Date Audit"
+            >
+              <span className="material-symbols-outlined text-2xl">search</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPhotoFeedbackOpen(true)}
+              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              title="Photo Feedback"
+            >
+              <span className="material-symbols-outlined text-2xl">photo_camera</span>
+            </button>
             <input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -428,6 +523,12 @@ export default function SuzyChatWindow() {
           onDismiss={handleDrawerDismiss}
         />
       )}
+
+      {/* Feature Modals */}
+      <DatePrepModal open={datePrepOpen} onClose={() => setDatePrepOpen(false)} />
+      <DraftComposer onClose={() => setDraftOpen(false)} />
+      <DateAuditModal isOpen={dateAuditOpen} onClose={() => setDateAuditOpen(false)} />
+      <PhotoFeedbackModal isOpen={photoFeedbackOpen} onClose={() => setPhotoFeedbackOpen(false)} onFeedbackReceived={() => {}} />
 
       {/* BottomNavBar */}
       <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">

@@ -7,6 +7,8 @@ import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateInsights } from '@/lib/insights/generate-insights';
 import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze-patterns';
+import { matchCourse } from '@/lib/course-mapper/match-course';
+import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 
 interface ChatMessage {
   id: string;
@@ -78,11 +80,13 @@ export async function POST(request: Request) {
     // Handle both JSON and FormData (image upload)
     const contentType = request.headers.get('content-type') || '';
     let query: string;
+    let mode: string;
     let imageBase64: string | null = null;
     
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       query = (formData.get('query') as string) || '';
+      mode = (formData.get('mode') as string) || '';
       const imageFile = formData.get('image') as File | null;
       if (imageFile) {
         const buffer = Buffer.from(await imageFile.arrayBuffer());
@@ -93,6 +97,7 @@ export async function POST(request: Request) {
     } else {
       const body = await request.json();
       query = body.query;
+      mode = body.mode || '';
     }
 
     if (!query || typeof query !== 'string' || !query.trim()) {
@@ -119,13 +124,17 @@ export async function POST(request: Request) {
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
 
+    // Build mood delivery instruction
+    const moodDelivery = mode ? getMoodDelivery(mode) : getMoodDelivery('soft-place');
+
     // If we have an image, skip transcript search and use vision model directly
     let chatResponse;
     if (imageBase64) {
       chatResponse = await answerGenerator.generateAnswer(
         cleanQuery,
         [],
-        imageBase64
+        imageBase64,
+        moodDelivery
       );
     } else {
       const searchResponse = await similaritySearch.search(cleanQuery, 5);
@@ -133,6 +142,8 @@ export async function POST(request: Request) {
       chatResponse = await answerGenerator.generateAnswer(
         cleanQuery,
         (searchResponse.results || []).map((result: { chunk: TranscriptChunk }) => result.chunk),
+        undefined,
+        moodDelivery
       );
     }
 
@@ -141,6 +152,8 @@ export async function POST(request: Request) {
       // Silently ignore — conversation saving is non-critical
     });
 
+    const courseSuggestion = matchCourse(cleanQuery);
+
     return NextResponse.json({
       answer: chatResponse.answer,
       sources: chatResponse.sources.map((source: TranscriptChunk) => ({
@@ -148,6 +161,7 @@ export async function POST(request: Request) {
         course_name: source.course_name,
         module_name: source.module_name,
       })),
+      courseSuggestion: courseSuggestion || undefined,
     });
   } catch (error) {
     logger.error('Chat API error', error);

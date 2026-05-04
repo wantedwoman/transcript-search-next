@@ -133,9 +133,43 @@ export class OpenRouterAnswerGenerator {
     this.model = env.OPENROUTER_MODEL || 'google/gemini-3.1-flash-lite-preview';
   }
 
-  async generateAnswer(question: string, contextChunks: TranscriptChunk[]): Promise<ChatResponse> {
+  async generateAnswer(question: string, contextChunks: TranscriptChunk[], imageBase64?: string, moodDelivery?: string): Promise<ChatResponse> {
     try {
       const prompt = this.buildPrompt(question, contextChunks);
+      const systemPrompt = moodDelivery
+        ? `${COACH_CASS_SYSTEM_PROMPT}\n\n${moodDelivery}`
+        : COACH_CASS_SYSTEM_PROMPT;
+
+      const messages: any[] = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+      ];
+
+      if (imageBase64) {
+        messages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: prompt,
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageBase64,
+              },
+            },
+          ],
+        });
+      } else {
+        messages.push({
+          role: 'user',
+          content: prompt,
+        });
+      }
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -143,17 +177,8 @@ export class OpenRouterAnswerGenerator {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: this.model,
-          messages: [
-            {
-              role: 'system',
-              content: COACH_CASS_SYSTEM_PROMPT,
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          model: imageBase64 ? 'openai/gpt-4o' : this.model,
+          messages,
           temperature: 0.45,
           max_tokens: 800,
         }),
