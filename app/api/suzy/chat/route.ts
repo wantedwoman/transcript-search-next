@@ -4,8 +4,16 @@ import { getSimilaritySearch } from '@/lib/search/similarity-search';
 import { getOpenRouterAnswerGenerator } from '@/lib/openrouter/answer-generation';
 import { logger } from '@/lib/utils/logger';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
-import { getAuthenticatedUser } from '@/lib/supabase/server';
+import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateInsights } from '@/lib/insights/generate-insights';
+import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze-patterns';
+
+interface ChatMessage {
+  id: string;
+  content: string;
+  isUser: boolean;
+  timestamp: Date;
+}
 
 export const maxDuration = 30;
 
@@ -67,7 +75,25 @@ function harmSafetyReply() {
 
 export async function POST(request: Request) {
   try {
-    const { query } = await request.json();
+    // Handle both JSON and FormData (image upload)
+    const contentType = request.headers.get('content-type') || '';
+    let query: string;
+    let imageBase64: string | null = null;
+    
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      query = (formData.get('query') as string) || '';
+      const imageFile = formData.get('image') as File | null;
+      if (imageFile) {
+        const buffer = Buffer.from(await imageFile.arrayBuffer());
+        const ext = imageFile.name.split('.').pop() || 'png';
+        const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+        imageBase64 = `data:${mimeType};base64,${buffer.toString('base64')}`;
+      }
+    } else {
+      const body = await request.json();
+      query = body.query;
+    }
 
     if (!query || typeof query !== 'string' || !query.trim()) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
@@ -93,19 +119,22 @@ export async function POST(request: Request) {
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
 
-    const searchResponse = await similaritySearch.search(cleanQuery, 5);
+    // If we have an image, skip transcript search and use vision model directly
+    let chatResponse;
+    if (imageBase64) {
+      chatResponse = await answerGenerator.generateAnswer(
+        cleanQuery,
+        [],
+        imageBase64
+      );
+    } else {
+      const searchResponse = await similaritySearch.search(cleanQuery, 5);
 
-    if (searchResponse.results.length === 0) {
-      return NextResponse.json({
-        answer: "I don't have enough information in the provided transcript lessons to answer that question.",
-        sources: [],
-      });
+      chatResponse = await answerGenerator.generateAnswer(
+        cleanQuery,
+        (searchResponse.results || []).map((result: { chunk: TranscriptChunk }) => result.chunk),
+      );
     }
-
-    const chatResponse = await answerGenerator.generateAnswer(
-      cleanQuery,
-      searchResponse.results.map((result: { chunk: TranscriptChunk }) => result.chunk)
-    );
 
     // Try to save conversation and generate insights (fire-and-forget)
     saveConversationAndGenerateInsights(cleanQuery, chatResponse.answer).catch(() => {
@@ -131,10 +160,83 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const conversationId = url.searchParams.get('conversationId');
+    
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+    
+    const supabase = await createServerSupabaseClient();
+    
+    if (conversationId) {
+      // Get specific conversation
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)
+        .single();
+        
+      if (!conversation) {
+        return NextResponse.json({ messages: [] });
+      }
+      
+      const { data: messages } = await supabase
+        .from('conversation_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+      
+      return NextResponse.json({
+        conversation,
+        messages: (messages || []).map(m => ({
+          id: m.id,
+          content: m.content,
+          isUser: m.role === 'user',
+          timestamp: new Date(m.created_at),
+        })),
+      });
+    }
+    
+    // Get all conversations for this user (latest first)
+    const { data: conversations } = await supabase
+      .from('conversations')
+      .select('id, title, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+      
+    // Load the most recent conversation with its messages
+    let messages: ChatMessage[] = [];
+    let latestConversation = null;
+    
+    if (conversations && conversations.length > 0) {
+      latestConversation = conversations[0];
+      const { data: convMessages } = await supabase
+        .from('conversation_messages')
+        .select('*')
+        .eq('conversation_id', latestConversation.id)
+        .order('created_at', { ascending: true });
+        
+      messages = (convMessages || []).map(m => ({
+        id: m.id,
+        content: m.content,
+        isUser: m.role === 'user',
+        timestamp: new Date(m.created_at),
+      }));
+    }
+    
     return NextResponse.json({
-      status: 'healthy',
+      conversations: conversations || [],
+      activeConversationId: latestConversation?.id || null,
+      messages,
     });
   } catch (error) {
     logger.error('Health check failed', error);
@@ -203,6 +305,11 @@ async function saveConversationAndGenerateInsights(
       { role: 'assistant', content: assistantAnswer },
     ]).catch(() => {
       // Silently ignore insight generation failures
+    });
+
+    // Fire-and-forget pattern detection
+    checkAndTriggerPatternDetection(user.id).catch(() => {
+      // Silently ignore pattern detection failures
     });
 
     logger.info(`Saved conversation ${conversationId} for user ${user.id}`);

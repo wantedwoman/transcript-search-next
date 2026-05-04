@@ -1,6 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import Link from 'next/link';
+import PatternBanner from './PatternBanner';
+import PatternDrawer from './PatternDrawer';
+import { UserPattern } from '@/lib/pattern-detection/types';
 
 interface ChatMessage {
   id: string;
@@ -16,23 +20,121 @@ export default function SuzyChatWindow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Pattern Catcher state
+  const [latestPattern, setLatestPattern] = useState<UserPattern | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [patternDrawerOpen, setPatternDrawerOpen] = useState(false);
+  
+  // Ref to the start of the latest bot message
+  const latestMessageRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch latest unread pattern on mount
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome-1',
-          content: welcomeMessage,
-          isUser: false,
-          timestamp: new Date(),
-        },
-      ]);
+    async function fetchPattern() {
+      try {
+        const res = await fetch('/api/suzy/patterns');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pattern) setLatestPattern(data.pattern);
+        }
+      } catch (e) {
+        // Silently ignore
+      }
     }
-  }, [messages.length]);
+    fetchPattern();
+  }, []);
 
+  const handlePatternDismiss = useCallback(async () => {
+    if (!latestPattern) return;
+    try {
+      await fetch('/api/suzy/patterns', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patternId: latestPattern.id, action: 'dismiss' }),
+      });
+    } catch (e) {
+      // Silently ignore
+    }
+    setLatestPattern(null);
+  }, [latestPattern]);
+
+  const handleDrawerDismiss = useCallback(async (patternId: string) => {
+    try {
+      await fetch('/api/suzy/patterns', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patternId, action: 'dismiss' }),
+      });
+    } catch (e) {
+      // Silently ignore
+    }
+    setLatestPattern(null);
+    setPatternDrawerOpen(false);
+  }, []);
+
+  // Load chat history — prefer sessionStorage for instant restore, fallback to server
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (historyLoaded) return;
+    
+    // Try sessionStorage first
+    const saved = sessionStorage.getItem('suzy-chat-messages');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) {
+          setMessages(parsed.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })));
+          setHistoryLoaded(true);
+          return;
+        }
+      } catch (e) {}
+    }
+    
+    // Fallback: fetch from server (but don't override welcome message)
+    async function loadFromServer() {
+      try {
+        const res = await fetch('/api/suzy/chat');
+        if (!res.ok) { setHistoryLoaded(true); return; }
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          const history = [
+            { id: 'welcome-1', content: welcomeMessage, isUser: false, timestamp: new Date() },
+            ...data.messages.map((m: any) => ({
+              id: m.id, content: m.content, isUser: m.isUser, timestamp: new Date(m.timestamp),
+            })),
+          ];
+          setMessages(history);
+          sessionStorage.setItem('suzy-chat-messages', JSON.stringify(history));
+        }
+      } catch (e) {}
+      setHistoryLoaded(true);
+    }
+    
+    // Show welcome message immediately while loading
+    setMessages([{ id: 'welcome-1', content: welcomeMessage, isUser: false, timestamp: new Date() }]);
+    loadFromServer();
+  }, [historyLoaded]);
+  
+  // Persist messages to sessionStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem('suzy-chat-messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Scroll to the TOP of the new message when it arrives
+  useEffect(() => {
+    if (!loading && messages.length > 1 && !messages[messages.length - 1].isUser) {
+      // Small delay to ensure DOM has updated with the full message
+      setTimeout(() => {
+        latestMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
   }, [messages, loading]);
 
   const handleUserMessage = async (e: React.FormEvent) => {
@@ -50,6 +152,11 @@ export default function SuzyChatWindow() {
     setInputValue('');
     setError(null);
     setLoading(true);
+    
+    // Scroll to user message immediately
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 50);
 
     try {
       const response = await fetch('/api/suzy/chat', {
@@ -80,6 +187,56 @@ export default function SuzyChatWindow() {
     setInputValue(promptText);
   };
 
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Show user message indicating an image was selected
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      content: `[Uploaded image: ${file.name}]`,
+      isUser: true,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('query', 'Analyze my dating profile screenshot. Give me honest feedback on what works, what doesn\'t, and what I should change to attract higher quality matches.');
+
+      const response = await fetch('/api/suzy/chat', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.details || data?.error || `Server error: ${response.status}`);
+
+      const botMessage: ChatMessage = {
+        id: `msg-${Date.now()}-bot`,
+        content: data.answer,
+        isUser: false,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botMessage]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze image');
+    } finally {
+      setLoading(false);
+    }
+    
+    // Reset file input so the same file can be selected again
+    e.target.value = '';
+  };
+
   return (
     <div className="min-h-screen text-on-surface selection:bg-primary-container selection:text-primary flex flex-col relative bg-[#171117]">
       {/* Decorative Glow */}
@@ -89,7 +246,7 @@ export default function SuzyChatWindow() {
       <header className="fixed top-0 w-full z-50 bg-[#171117] border-b border-outline-variant/10">
         <div className="flex justify-between items-center px-6 py-4 w-full">
           <div className="flex items-center gap-4">
-            <button className="p-2 active:scale-95 duration-200 transition-colors text-[#ecbaba] hover:text-primary">
+            <button onClick={() => setDrawerOpen(true)} className="p-2 active:scale-95 duration-200 transition-colors text-[#ecbaba] hover:text-primary">
               <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
             <div className="flex flex-col">
@@ -100,11 +257,42 @@ export default function SuzyChatWindow() {
               </div>
             </div>
           </div>
-          <div className="w-10 h-10 rounded-full border border-outline-variant/20 flex items-center justify-center text-secondary/60 hover:text-primary active:scale-95 duration-200 cursor-pointer">
+          <Link href="/profile" className="w-10 h-10 rounded-full border border-outline-variant/20 flex items-center justify-center text-secondary/60 hover:text-primary active:scale-95 duration-200 cursor-pointer">
             <span className="material-symbols-outlined text-2xl">person</span>
-          </div>
+          </Link>
         </div>
       </header>
+
+      {/* Drawer Menu */}
+      {drawerOpen && (
+        <>
+          <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm transition-opacity" onClick={() => setDrawerOpen(false)} />
+          <div className="fixed top-0 left-0 h-full w-72 z-50 bg-[#171117] border-r border-outline-variant/20 shadow-2xl pt-20 px-6 animate-in slide-in-from-left duration-300">
+            <button onClick={() => setDrawerOpen(false)} className="absolute top-6 right-6 text-secondary/60 hover:text-primary">
+              <span className="material-symbols-outlined">close</span>
+            </button>
+            <div className="flex flex-col gap-2 mt-8">
+              <Link href="/chat" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
+                <span className="material-symbols-outlined">chat_bubble</span>
+                <span className="font-label font-semibold text-lg">Chat</span>
+              </Link>
+              <Link href="/insights" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
+                <span className="material-symbols-outlined">auto_awesome</span>
+                <span className="font-label font-semibold text-lg">Insights</span>
+              </Link>
+              <Link href="/profile" onClick={() => setDrawerOpen(false)} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary">
+                <span className="material-symbols-outlined">person</span>
+                <span className="font-label font-semibold text-lg">Profile</span>
+              </Link>
+              <div className="border-t border-outline-variant/20 my-4" />
+              <button onClick={() => { sessionStorage.clear(); window.location.href = '/'; }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
+                <span className="material-symbols-outlined">logout</span>
+                <span className="font-label font-semibold text-lg">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Main Content Canvas */}
       <main className="flex-1 pt-24 pb-48 px-6 md:px-12 lg:px-24 max-w-5xl mx-auto w-full space-y-12 relative z-0">
@@ -118,33 +306,41 @@ export default function SuzyChatWindow() {
 
         {/* Chat History Area */}
         <div className="space-y-8">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex items-end gap-4 max-w-[85%] md:max-w-[70%] ${message.isUser ? 'justify-end ml-auto' : 'justify-start'}`}
-            >
-              <div className={`flex flex-col gap-2 ${message.isUser ? 'items-end text-right' : ''}`}>
-                <div
-                  className={`message-shadow glass-panel-solid px-6 py-5 rounded-lg font-body text-lg leading-relaxed ${
-                    message.isUser
-                      ? 'bg-primary text-white rounded-tr-none border border-primary/20'
-                      : 'bg-surface-container-high/60 text-on-surface rounded-tl-none border-tl-4 border-tertiary'
-                  }`}
-                >
-                  <p>{message.content}</p>
+          {messages.map((message, index) => {
+            const isLatestBotMessage = !message.isUser && index === messages.length - 1;
+            return (
+              <div
+                key={message.id}
+                ref={isLatestBotMessage ? latestMessageRef : null}
+                className={`flex items-end gap-4 max-w-[85%] md:max-w-[70%] ${message.isUser ? 'justify-end ml-auto' : 'justify-start'}`}
+              >
+                <div className={`flex flex-col gap-2 ${message.isUser ? 'items-end text-right' : ''}`}>
+                  <div
+                    className={`message-shadow glass-panel-solid px-6 py-5 rounded-lg font-body text-lg leading-relaxed ${
+                      message.isUser
+                        ? 'bg-primary text-white rounded-tr-none border border-primary/20'
+                        : 'bg-surface-container-high/60 text-on-surface rounded-tl-none border-tl-4 border-tertiary'
+                    }`}
+                  >
+                    <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
+                  </div>
+                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40 px-2">
+                    {message.isUser ? 'You' : 'Suzy'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40 px-2">
-                  {message.isUser ? 'You' : 'Suzy'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {loading && (
             <div className="flex justify-start items-end gap-4 max-w-[85%] md:max-w-[70%]">
               <div className="flex flex-col gap-2">
                 <div className="glass-panel-solid bg-surface-container-high/60 text-on-surface px-6 py-5 rounded-lg rounded-tl-none message-shadow border-tl-4 border-tertiary">
-                  <p className="font-body text-lg leading-relaxed text-secondary/60">Thinking...</p>
+                  <div className="flex gap-2 items-center">
+                    <span className="w-2 h-2 rounded-full bg-tertiary/60 animate-bounce" style={{animationDelay:'0ms'}}></span>
+                    <span className="w-2 h-2 rounded-full bg-tertiary/60 animate-bounce" style={{animationDelay:'150ms'}}></span>
+                    <span className="w-2 h-2 rounded-full bg-tertiary/60 animate-bounce" style={{animationDelay:'300ms'}}></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -157,8 +353,6 @@ export default function SuzyChatWindow() {
               </div>
             </div>
           )}
-
-          <div ref={messagesEndRef} />
         </div>
 
         {/* Suggested Prompts */}
@@ -175,12 +369,33 @@ export default function SuzyChatWindow() {
         </div>
       </main>
 
+      {/* Pattern Catcher Banner */}
+      {latestPattern && (
+        <div className="fixed bottom-[170px] left-0 w-full px-6 md:px-12 lg:px-24 z-40 pointer-events-auto">
+          <div className="max-w-5xl mx-auto">
+            <PatternBanner
+              topic={latestPattern.topics_observed[0] || 'your patterns'}
+              onShowMe={() => setPatternDrawerOpen(true)}
+              onDismiss={handlePatternDismiss}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Bottom Input Area (Fixed) */}
       <div className="fixed bottom-[100px] left-0 w-full px-6 md:px-12 lg:px-24 pointer-events-none z-40">
         <form onSubmit={handleUserMessage} className="max-w-5xl mx-auto pointer-events-auto">
           <div className="glass-panel-solid p-2 rounded-xl shadow-[0_-10px_40px_rgba(255,112,149,0.05)] flex items-center gap-3 border border-outline-variant/20">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              className="hidden" 
+              accept="image/*" 
+            />
             <button
               type="button"
+              onClick={handleAttachmentClick}
               className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
             >
               <span className="material-symbols-outlined text-2xl">attach_file</span>
@@ -204,23 +419,33 @@ export default function SuzyChatWindow() {
         </form>
       </div>
 
+      {/* Pattern Drawer */}
+      {latestPattern && (
+        <PatternDrawer
+          pattern={latestPattern}
+          open={patternDrawerOpen}
+          onClose={() => setPatternDrawerOpen(false)}
+          onDismiss={handleDrawerDismiss}
+        />
+      )}
+
       {/* BottomNavBar */}
       <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
         {/* Chat Tab (Active) */}
-        <a className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="#">
+        <Link href="/chat" prefetch={true} className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">chat_bubble</span>
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
-        </a>
+        </Link>
         {/* Insights Tab */}
-        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/insights">
+        <Link href="/insights" prefetch={true} className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">auto_awesome</span>
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
-        </a>
+        </Link>
         {/* Profile Tab */}
-        <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/profile">
+        <Link href="/profile" prefetch={true} className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">person</span>
           <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
-        </a>
+        </Link>
       </nav>
     </div>
   );
