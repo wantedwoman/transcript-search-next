@@ -13,11 +13,13 @@ const TONES: { value: DraftTone; label: string; icon: string; description: strin
 ];
 
 interface DraftComposerProps {
+  isOpen: boolean;
   onClose: () => void;
   onInsertDraft?: (text: string) => void;
 }
 
-export default function DraftComposer({ onClose, onInsertDraft }: DraftComposerProps) {
+export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftComposerProps) {
+  if (!isOpen) return null;
   const [rawText, setRawText] = useState('');
   const [tone, setTone] = useState<DraftTone>('Neutral');
   const [draftedText, setDraftedText] = useState('');

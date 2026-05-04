@@ -324,6 +324,11 @@ export default function SuzyChatWindow() {
                 <span className="font-label font-semibold text-lg">My Vault</span>
               </Link>
               <div className="border-t border-outline-variant/20 my-4" />
+              <button onClick={() => { setDrawerOpen(false); setDraftOpen(true); }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary w-full text-left">
+                <span className="material-symbols-outlined">edit_note</span>
+                <span className="font-label font-semibold text-lg">Write a Letter</span>
+              </button>
+              <div className="border-t border-outline-variant/20 my-4" />
               <button onClick={() => { sessionStorage.clear(); window.location.href = '/'; }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
                 <span className="material-symbols-outlined">logout</span>
                 <span className="font-label font-semibold text-lg">Sign Out</span>
@@ -473,14 +478,6 @@ export default function SuzyChatWindow() {
             </button>
             <button
               type="button"
-              onClick={() => setDraftOpen(true)}
-              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
-              title="Love Letter"
-            >
-              <span className="material-symbols-outlined text-2xl">edit_note</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setDateAuditOpen(true)}
               className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
               title="Date Audit"
@@ -526,7 +523,7 @@ export default function SuzyChatWindow() {
 
       {/* Feature Modals */}
       <DatePrepModal open={datePrepOpen} onClose={() => setDatePrepOpen(false)} />
-      <DraftComposer onClose={() => setDraftOpen(false)} />
+      <DraftComposer isOpen={draftOpen} onClose={() => setDraftOpen(false)} />
       <DateAuditModal isOpen={dateAuditOpen} onClose={() => setDateAuditOpen(false)} />
       <PhotoFeedbackModal isOpen={photoFeedbackOpen} onClose={() => setPhotoFeedbackOpen(false)} onFeedbackReceived={() => {}} />
 
