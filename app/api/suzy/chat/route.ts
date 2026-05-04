@@ -326,6 +326,34 @@ async function saveConversationAndGenerateInsights(
       // Silently ignore pattern detection failures
     });
 
+    // Fire-and-forget vault save — auto-save every Suzy response
+    (async () => {
+      try {
+        await supabase.from('vault_entries').insert({
+          user_id: user.id,
+          content: assistantAnswer,
+          heartbeat_link: null,
+        });
+        // Count and cap at 100
+        const { count } = await supabase.from('vault_entries')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+        if (count && count > 100) {
+          const { data: oldest } = await supabase.from('vault_entries')
+            .select('id')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true })
+            .limit(count - 100);
+          if (oldest && oldest.length > 0) {
+            const ids = oldest.map((r: { id: string }) => r.id);
+            await supabase.from('vault_entries').delete().in('id', ids);
+          }
+        }
+      } catch {
+        // Silently ignore vault save failures
+      }
+    })();
+
     logger.info(`Saved conversation ${conversationId} for user ${user.id}`);
   } catch (error) {
     logger.error('saveConversationAndGenerateInsights error', error);

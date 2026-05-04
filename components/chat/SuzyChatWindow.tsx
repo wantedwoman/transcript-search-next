@@ -326,7 +326,7 @@ export default function SuzyChatWindow() {
               <div className="border-t border-outline-variant/20 my-4" />
               <button onClick={() => { setDrawerOpen(false); setDraftOpen(true); }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary w-full text-left">
                 <span className="material-symbols-outlined">edit_note</span>
-                <span className="font-label font-semibold text-lg">Write a Letter</span>
+                <span className="font-label font-semibold text-lg">Rephrase</span>
               </button>
               <div className="border-t border-outline-variant/20 my-4" />
               <button onClick={() => { sessionStorage.clear(); window.location.href = '/'; }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
@@ -377,23 +377,7 @@ export default function SuzyChatWindow() {
                         </span>
                       )}
                     </span>
-                    {!message.isUser && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            await fetch('/api/suzy/vault', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ content: message.content }),
-                            });
-                            alert('Saved to Vault!');
-                          } catch {}
-                        }}
-                        className="text-[10px] text-secondary/40 hover:text-primary transition-colors font-label font-semibold uppercase tracking-widest"
-                      >
-                        Save to Vault
-                      </button>
-                    )}
+
                   </div>
                 </div>
               </div>
@@ -454,6 +438,14 @@ export default function SuzyChatWindow() {
       <div className="fixed bottom-[100px] left-0 w-full px-6 md:px-12 lg:px-24 pointer-events-none z-40">
         <form onSubmit={handleUserMessage} className="max-w-5xl mx-auto pointer-events-auto">
           <div className="glass-panel-solid p-2 rounded-xl shadow-[0_-10px_40px_rgba(255,112,149,0.05)] flex items-center gap-3 border border-outline-variant/20">
+            <input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-lg py-4 focus:outline-none"
+              placeholder="Type your message..."
+              type="text"
+              disabled={loading}
+            />
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -464,33 +456,26 @@ export default function SuzyChatWindow() {
             <button
               type="button"
               onClick={handleAttachmentClick}
-              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              title="Attach screenshot"
             >
-              <span className="material-symbols-outlined text-2xl">attach_file</span>
+              <span className="material-symbols-outlined text-lg">attach_file</span>
             </button>
             <button
               type="button"
               onClick={() => setDatePrepOpen(true)}
-              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
               title="Date Prep"
             >
-              <span className="material-symbols-outlined text-2xl">favorite</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDateAuditOpen(true)}
-              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
-              title="Date Audit"
-            >
-              <span className="material-symbols-outlined text-2xl">search</span>
+              <span className="material-symbols-outlined text-lg">favorite</span>
             </button>
             <button
               type="button"
               onClick={() => setPhotoFeedbackOpen(true)}
-              className="p-3 text-secondary/60 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
               title="Photo Feedback"
             >
-              <span className="material-symbols-outlined text-2xl">photo_camera</span>
+              <span className="material-symbols-outlined text-lg">photo_camera</span>
             </button>
             <input
               value={inputValue}

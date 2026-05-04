@@ -83,7 +83,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-2xl">edit_note</span>
-            <h2 className="text-xl font-headline font-bold text-primary">Write a Letter</h2>
+            <h2 className="text-xl font-headline font-bold text-primary">Rephrase</h2>
           </div>
           <button
             onClick={onClose}
