@@ -81,7 +81,7 @@ export default function DraftComposer({ onClose, onInsertDraft }: DraftComposerP
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/10">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-2xl">edit_note</span>
-            <h2 className="text-xl font-headline font-bold text-primary">Draft Your Message</h2>
+            <h2 className="text-xl font-headline font-bold text-primary">Write a Letter</h2>
           </div>
           <button
             onClick={onClose}
@@ -139,11 +139,11 @@ export default function DraftComposer({ onClose, onInsertDraft }: DraftComposerP
             </p>
           </div>
 
-          {/* Draft Button */}
+          {/* Draft Button - Always Visible */}
           <button
             onClick={handleDraft}
             disabled={!rawText.trim() || loading}
-            className="w-full bg-primary text-on-primary py-3 rounded-lg font-label font-semibold text-base active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            className="w-full bg-primary text-on-primary py-4 rounded-xl font-label font-semibold text-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
