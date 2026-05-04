@@ -409,7 +409,7 @@ export default function SuzyChatWindow() {
 
         {/* Suggested Prompts */}
         <div className="flex flex-wrap gap-3 justify-center pt-8">
-          {['Give me a dating tip', 'How should I respond to this?', 'Help me rephrase an email'].map((prompt) => (
+          {['Give me a dating tip', 'How should I respond to this text?', 'What should I text him/her?'].map((prompt) => (
             <button
               key={prompt}
               onClick={() => handlePromptClick(prompt)}

@@ -10,6 +10,7 @@ interface OnboardingData {
   age: string;
   profession: string;
   income_range: string;
+  relationship_status: string;
   hobbies: string;
   love_struggles: string;
 }
@@ -30,6 +31,15 @@ const INCOME_OPTIONS = [
   { value: '$150k+', label: '$150k+' },
 ];
 
+const RELATIONSHIP_OPTIONS = [
+  { value: '', label: 'Select your relationship status' },
+  { value: 'single', label: 'Single' },
+  { value: 'dating', label: 'Dating' },
+  { value: 'engaged', label: 'Engaged' },
+  { value: 'married', label: 'Married' },
+  { value: 'widowed', label: 'Widowed' },
+];
+
 export default function ProfilePage() {
   const supabase = createClient();
 
@@ -44,6 +54,7 @@ export default function ProfilePage() {
     age: '',
     profession: '',
     income_range: '',
+    relationship_status: '',
     hobbies: '',
     love_struggles: '',
   });
@@ -84,6 +95,7 @@ export default function ProfilePage() {
           age: onboardingData.age?.toString() || '',
           profession: onboardingData.profession || '',
           income_range: onboardingData.income_range || '',
+          relationship_status: onboardingData.relationship_status || '',
           hobbies: onboardingData.hobbies || '',
           love_struggles: onboardingData.love_struggles || '',
         });
@@ -143,6 +155,7 @@ export default function ProfilePage() {
         age: onboarding.age ? parseInt(onboarding.age) : null,
         profession: onboarding.profession || null,
         income_range: onboarding.income_range || null,
+        relationship_status: onboarding.relationship_status || null,
         hobbies: onboarding.hobbies || null,
         love_struggles: onboarding.love_struggles || null,
       };
@@ -273,6 +286,22 @@ export default function ProfilePage() {
               className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
               placeholder="What do you do?"
             />
+          </div>
+
+          {/* Relationship Status */}
+          <div className="space-y-2">
+            <label className="block text-sm font-label font-semibold uppercase tracking-widest text-secondary/80">Relationship Status</label>
+            <select
+              value={onboarding.relationship_status}
+              onChange={(e) => setOnboarding(prev => ({ ...prev, relationship_status: e.target.value }))}
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all appearance-none"
+            >
+              {RELATIONSHIP_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value} className="bg-surface-container text-on-surface">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Income Range */}
