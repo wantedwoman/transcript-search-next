@@ -339,10 +339,10 @@ export default function SuzyChatWindow() {
       )}
 
       {/* Main Content Canvas */}
-      <main className="flex-1 pt-24 pb-48 px-6 md:px-12 lg:px-24 max-w-5xl mx-auto w-full space-y-12 relative z-0">
+      <main className="flex-1 pt-8 pb-48 px-6 md:px-12 lg:px-24 max-w-5xl mx-auto w-full space-y-12 relative z-0">
         {/* Intro Section */}
-        <div className="text-center space-y-4 mb-16">
-          <h2 className="text-4xl md:text-5xl font-headline font-bold text-primary tracking-tight">Your digital confidante.</h2>
+        <div className="text-center space-y-4 mb-6">
+          <h2 className="text-3xl md:text-4xl font-headline font-bold text-primary tracking-tight">Your digital confidante.</h2>
           <p className="text-secondary/70 font-body text-lg max-w-md mx-auto leading-relaxed">
             I&apos;m here to listen, support, and guide you through whatever is on your mind today.
           </p>
