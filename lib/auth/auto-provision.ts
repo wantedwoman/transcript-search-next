@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
  * across all tenants (webhooks, admin APIs, cron jobs).
  */
 export function createServiceRoleClient() {
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

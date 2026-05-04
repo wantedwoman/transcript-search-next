@@ -129,7 +129,7 @@ export class OpenRouterAnswerGenerator {
   private baseUrl = 'https://openrouter.ai/api/v1';
 
   constructor() {
-    this.apiKey = env.OPENROUTER_API_KEY;
+    this.apiKey = env.OPENROUTER_API_KEY!;
     this.model = env.OPENROUTER_MODEL || 'google/gemini-3.1-flash-lite-preview';
   }
 

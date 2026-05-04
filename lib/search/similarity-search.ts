@@ -8,7 +8,7 @@ interface MatchRow extends TranscriptChunk {
 }
 
 export class SimilaritySearch {
-  private supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  private supabase = createClient(env.SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   private isInitialized = false;
