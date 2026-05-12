@@ -75,7 +75,7 @@ export default function SignupPage() {
           Join the Inner Circle
         </h1>
         <p className="text-center text-[#F8A4D8] mb-8">
-          Your exclusive access to Suzy AI.
+          Your exclusive access to Coach Cass AI.
         </p>
 
         {refCode && (

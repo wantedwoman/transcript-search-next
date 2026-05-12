@@ -366,7 +366,7 @@ export default function ProfilePage() {
 
         {/* Referral Program */}
         <div className="space-y-6">
-          <h2 className="text-xl font-headline font-bold text-primary">Share Suzy AI 💜</h2>
+          <h2 className="text-xl font-headline font-bold text-primary">Share Coach Cass AI 💜</h2>
           <p className="text-sm font-body text-secondary/60">Share your link and earn when others join.</p>
 
           {referral ? (

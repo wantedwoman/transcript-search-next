@@ -3,7 +3,7 @@ import { createServerSupabaseClient, getAuthenticatedUser } from '@/lib/supabase
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Admin Dashboard - Suzy AI',
+  title: 'Admin Dashboard - Coach Cass AI',
 };
 
 export default async function AdminPage() {
@@ -101,6 +101,19 @@ export default async function AdminPage() {
             </div>
             <p className="text-white/60 text-sm">
               View coaching insights, trending topics, and social media content.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/conversations"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">forum</span>
+              <h2 className="text-xl font-bold">Client Conversations</h2>
+            </div>
+            <p className="text-white/60 text-sm">
+              Review client questions, Suzy replies, timestamps, and insight summaries in one view.
             </p>
           </Link>
 

@@ -61,7 +61,7 @@ export async function checkGhlTags(email: string): Promise<{ hasAccess: boolean;
     ).filter(Boolean);
 
     // ONLY block if they have the cancellation tag
-    const hasCancellation = tags.some(t => t.toLowerCase() === 'suzy ai cancellation');
+    const hasCancellation = tags.some(t => t.toLowerCase() === 'coach cass ai cancellation');
     const hasAccess = !hasCancellation;
 
     return { hasAccess, tags };

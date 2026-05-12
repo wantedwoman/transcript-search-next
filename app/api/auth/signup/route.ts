@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Verify the email has the "Suzy AI Subscriber" tag in GHL
+    // 1. Verify the email has the "Coach Cass AI Subscriber" tag in GHL
     const { hasAccess, tags } = await checkGhlTags(email);
 
     if (!hasAccess) {

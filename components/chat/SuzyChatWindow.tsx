@@ -275,7 +275,7 @@ export default function SuzyChatWindow() {
               <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-headline font-bold italic tracking-tighter text-primary">Suzy AI</h1>
+              <h1 className="text-2xl font-headline font-bold italic tracking-tighter text-primary">Coach Cass AI</h1>
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_#e9c349]"></span>

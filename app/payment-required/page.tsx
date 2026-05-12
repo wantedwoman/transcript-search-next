@@ -40,7 +40,7 @@ export default function PaymentRequiredPage() {
       <div className="max-w-md w-full text-center space-y-8">
         {/* Logo */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-[#FF7095]">Suzy AI</h1>
+          <h1 className="text-3xl font-bold text-[#FF7095]">Coach Cass AI</h1>
           <p className="text-white/40 text-sm">WANTED Woman</p>
         </div>
 
@@ -54,7 +54,7 @@ export default function PaymentRequiredPage() {
           <h2 className="text-2xl font-bold text-white">Your Subscription Needs Attention</h2>
           <p className="text-white/60 leading-relaxed">
             Hey Sis, it looks like your payment method needs updating.
-            Update your card to keep using Suzy AI.
+            Update your card to keep using Coach Cass AI.
           </p>
         </div>
 

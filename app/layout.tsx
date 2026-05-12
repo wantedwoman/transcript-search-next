@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Suzy AI - Chat Interface',
+  title: 'Coach Cass AI - Chat Interface',
   description: 'Your digital confidante.',
 };
 
