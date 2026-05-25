@@ -1,5 +1,7 @@
 'use client';
 
+import { createClient } from '@/lib/supabase/client';
+
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
 import PatternBanner from './PatternBanner';
@@ -91,6 +93,19 @@ export default function SuzyChatWindow() {
     }
     setLatestPattern(null);
     setPatternDrawerOpen(false);
+  }, []);
+
+  // Sign out handler
+  const handleSignOut = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Sign out error:', e);
+    }
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href = '/';
   }, []);
 
   // Load chat history — prefer sessionStorage for instant restore, fallback to server
@@ -329,7 +344,7 @@ export default function SuzyChatWindow() {
                 <span className="font-label font-semibold text-lg">Rephrase</span>
               </button>
               <div className="border-t border-outline-variant/20 my-4" />
-              <button onClick={() => { sessionStorage.clear(); window.location.href = '/'; }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
+              <button onClick={handleSignOut} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
                 <span className="material-symbols-outlined">logout</span>
                 <span className="font-label font-semibold text-lg">Sign Out</span>
               </button>
@@ -370,7 +385,7 @@ export default function SuzyChatWindow() {
                   </div>
                   <div className="flex items-center gap-2 px-2">
                     <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40">
-                      {message.isUser ? 'You' : 'Suzy'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {message.isUser ? 'You' : 'Coach Cass AI'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {!message.isUser && message.mood && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-white/10 border border-white/10">
                           {MOOD_EMOJI[message.mood]} {MOOD_LABELS[message.mood]}
@@ -409,7 +424,7 @@ export default function SuzyChatWindow() {
 
         {/* Suggested Prompts */}
         <div className="flex flex-wrap gap-3 justify-center pt-8">
-          {['Give me a dating tip', 'How should I respond to this text?', 'What should I text him/her?'].map((prompt) => (
+          {['Give me a dating tip', 'How should I respond to this text?', 'What should I text him?'].map((prompt) => (
             <button
               key={prompt}
               onClick={() => handlePromptClick(prompt)}
@@ -441,7 +456,7 @@ export default function SuzyChatWindow() {
             <input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-lg py-4 focus:outline-none"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-lg py-4 min-w-0 focus:outline-none"
               placeholder="Type your message..."
               type="text"
               disabled={loading}
@@ -456,7 +471,7 @@ export default function SuzyChatWindow() {
             <button
               type="button"
               onClick={handleAttachmentClick}
-              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center shrink-0"
               title="Attach screenshot"
             >
               <span className="material-symbols-outlined text-lg">attach_file</span>
@@ -464,7 +479,7 @@ export default function SuzyChatWindow() {
             <button
               type="button"
               onClick={() => setDatePrepOpen(true)}
-              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center shrink-0"
               title="Date Prep"
             >
               <span className="material-symbols-outlined text-lg">favorite</span>
@@ -472,23 +487,15 @@ export default function SuzyChatWindow() {
             <button
               type="button"
               onClick={() => setPhotoFeedbackOpen(true)}
-              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center"
+              className="p-2 text-secondary/30 cursor-pointer hover:text-primary transition-colors flex items-center justify-center shrink-0"
               title="Photo Feedback"
             >
               <span className="material-symbols-outlined text-lg">photo_camera</span>
             </button>
-            <input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-lg py-4 focus:outline-none"
-              placeholder="Type your message..."
-              type="text"
-              disabled={loading}
-            />
             <button
               type="submit"
               disabled={!inputValue.trim() || loading}
-              className="bg-primary text-on-primary w-14 h-14 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary text-on-primary w-14 h-14 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all group disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               <span className="material-symbols-outlined text-2xl group-hover:translate-x-0.5 transition-transform">send</span>
             </button>
