@@ -6,7 +6,7 @@ interface CourseSuggestionProps {
 }
 
 /**
- * Inline card that appears below Suzy's answer when a course is relevant.
+ * Inline card that appears below Coach Cass AI's answer when a course is relevant.
  * Shows "📚 Related: [Course Name]" with a link to the Heartbeat course.
  */
 export default function CourseSuggestion({ name, url }: CourseSuggestionProps) {

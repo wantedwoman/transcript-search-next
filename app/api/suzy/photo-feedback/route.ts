@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getTemplateByType, ImageType } from '@/lib/photo-feedback/feedback-templates';
 import { env } from '@/lib/config/env';
 import { logger } from '@/lib/utils/logger';
+import { saveVaultEntry } from '@/lib/vault/vault-engine';
+import { getAuthenticatedUser } from '@/lib/supabase/server';
 
 export const maxDuration = 30;
 
@@ -40,6 +42,12 @@ Formatting rules:
 
 export async function POST(request: Request) {
   try {
+    // Authenticate user first
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const contentType = request.headers.get('content-type') || '';
     let imageBase64: string | null = null;
     let imageType: string | null = null;
@@ -149,6 +157,19 @@ export async function POST(request: Request) {
     logger.info('Photo feedback generated', { imageType, hasFeedback: !!feedback });
 
     // Don't store the image — privacy constraint from PRD
+    // Save feedback to vault for the user
+    (async () => {
+      try {
+        await saveVaultEntry(user.id, {
+          content: `Photo Feedback (${template.label})\n\n${feedback}`,
+          user_tag: 'photo-feedback',
+        });
+        logger.info(`Photo feedback saved to vault for user ${user.id}`);
+      } catch (err) {
+        logger.error(`Failed to save photo feedback to vault for user ${user.id}`, err);
+      }
+    })();
+
     // Return structured feedback
     return NextResponse.json({
       feedback,

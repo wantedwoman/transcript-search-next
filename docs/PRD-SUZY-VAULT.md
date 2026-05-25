@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Private Vault (Feature #10)
+# PRD: Coach Cass AI — Private Vault (Feature #10)
 
 **Date:** May 3, 2026
 **Status:** Draft

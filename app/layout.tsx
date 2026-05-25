@@ -2,8 +2,18 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Coach Cass AI - Chat Interface',
-  description: 'Your digital confidante.',
+  title: 'Coach Cass AI',
+  description: 'Your digital confidante for love, dating, and relationships. Get insight, draft texts, audit dates, and prep with confidence.',
+  openGraph: {
+    title: 'Coach Cass AI',
+    description: 'Your digital confidante for love, dating, and relationships.',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Coach Cass AI',
+    description: 'Your digital confidante for love, dating, and relationships.',
+  },
 };
 
 export default function RootLayout({

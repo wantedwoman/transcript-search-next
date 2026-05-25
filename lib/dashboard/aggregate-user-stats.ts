@@ -219,7 +219,7 @@ export async function aggregateUserStats(): Promise<DashboardStats | null> {
     // Build summary text
     let summaryText = '';
     if (totalConversations === 0) {
-      summaryText = 'Start chatting with Suzy to see your progress here.';
+      summaryText = 'Start chatting with Coach Cass AI to see your progress here.';
     } else if (toneDirection === 'improving') {
       summaryText = `You're asking more empowered questions than before. Keep going, sis — your growth is showing.`;
     } else if (toneDirection === 'declining') {

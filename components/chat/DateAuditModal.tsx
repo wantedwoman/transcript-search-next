@@ -80,7 +80,7 @@ export default function DateAuditModal({ isOpen, onClose }: DateAuditModalProps)
             </button>
           </div>
           <p className="text-sm text-secondary/70 mt-2 font-body">
-            Paste a text exchange or describe how the date went. Suzy will help you separate facts from feelings, spot flags, and get clarity on next steps.
+            Paste a text exchange or describe how the date went. Coach Cass AI will help you separate facts from feelings, spot flags, and get clarity on next steps.
           </p>
         </div>
 
@@ -186,7 +186,7 @@ export default function DateAuditModal({ isOpen, onClose }: DateAuditModalProps)
                     </div>
                   )}
                   {result.greenFlags.length === 0 && result.redFlags.length === 0 && (
-                    <p className="text-sm text-secondary/50 font-body">No strong flags either way — more information may help.</p>
+                    <p className="text-sm text-secondary/50 font-body">No strong flags either way. More information may help.</p>
                   )}
                 </div>
               </div>

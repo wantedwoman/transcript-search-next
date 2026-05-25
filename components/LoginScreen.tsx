@@ -27,7 +27,7 @@ export default function LoginScreen() {
         setError(error.message);
         console.error('Login error:', error);
       } else {
-        window.location.href = '/chat';
+        window.location.href = '/onboarding';
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
@@ -171,6 +171,13 @@ export default function LoginScreen() {
           <div className="mt-8 pt-6 border-t border-[#4D1D57]/30 text-center">
             <p className="text-xs text-white/30">
               Part of the WANTED Woman ecosystem
+            </p>
+          </div>
+
+          {/* Disclaimer */}
+          <div className="mt-6 text-center">
+            <p className="text-[10px] text-white/20 leading-relaxed max-w-xs mx-auto">
+              Coach Cass AI provides perspectives for personal growth and entertainment. This is not a replacement for professional therapy, counseling, or medical care. If you are in crisis, contact a licensed professional or emergency services.
             </p>
           </div>
         </div>

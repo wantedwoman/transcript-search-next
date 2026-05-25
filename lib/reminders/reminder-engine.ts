@@ -144,7 +144,7 @@ export async function getDueReminders(): Promise<UserReminder[]> {
 }
 
 /**
- * Mark a reminder as sent and insert a Suzy message into the conversation.
+ * Mark a reminder as sent and insert a Coach Cass AI message into the conversation.
  */
 export async function sendReminder(reminder: UserReminder): Promise<void> {
   const supabase = createServiceRoleClient();
@@ -167,7 +167,7 @@ export async function sendReminder(reminder: UserReminder): Promise<void> {
 
   const reminderMessage = `Hey Sis, it's been a while since we talked about ${reminder.topic}. How's that going?`;
 
-  // Insert Suzy's reminder message
+  // Insert Coach Cass AI's reminder message
   const { error: msgError } = await supabase
     .from('conversation_messages')
     .insert({

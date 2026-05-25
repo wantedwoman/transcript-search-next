@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Growth Reminders (Feature #7)
+# PRD: Coach Cass AI — Growth Reminders (Feature #7)
 
 **Date:** May 3, 2026
 **Status:** Draft

@@ -5,7 +5,7 @@ import { PatternAnalysisResult } from './types';
 const PATTERN_PROMPT = `You are a relationship coaching pattern analyst for WANTED Woman.
 
 Analyze the provided user insights from coaching conversations. The user has been
-talking with Suzy, an AI relationship coach, and their insights include topics,
+talking with Coach Cass AI, an AI relationship insight tool, and their insights include topics,
 emotional tone, and key questions.
 
 Return JSON with exactly these fields:

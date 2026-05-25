@@ -15,7 +15,7 @@ interface InsightResult {
   summary: string;
 }
 
-const INSIGHT_PROMPT = `You are a coaching insights extractor. Analyze the following conversation between a relationship coaching AI (Suzy) and a client. Extract structured insights.
+const INSIGHT_PROMPT = `You are a coaching insights extractor. Analyze the following conversation between a relationship insight AI (Coach Cass AI) and a client. Extract structured insights.
 
 Analyze and return JSON with exactly these fields:
 - topics: string array of 2-5 main topics discussed (e.g., ["dating anxiety", "boundary setting", "communication"])
@@ -37,7 +37,7 @@ export async function generateInsights(
   try {
     // Format messages for the LLM
     const conversationText = messages
-      .map((m) => `${m.role === 'user' ? 'Client' : 'Suzy'}: ${m.content}`)
+      .map((m) => `${m.role === 'user' ? 'Client' : 'Coach Cass AI'}: ${m.content}`)
       .join('\n\n');
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

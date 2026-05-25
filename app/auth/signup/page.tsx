@@ -58,7 +58,7 @@ export default function SignupPage() {
         document.cookie = 'suzy_ref=; path=/; max-age=0';
         // Redirect to chat after a short delay so the user sees the success state
         setTimeout(() => {
-          window.location.href = '/chat';
+          window.location.href = '/onboarding';
         }, 1500);
       }
     } catch (err: any) {
@@ -155,6 +155,13 @@ export default function SignupPage() {
           >
             Back to Login
           </Link>
+        </div>
+
+        {/* Disclaimer */}
+        <div className="mt-8 text-center">
+          <p className="text-[10px] text-white/20 leading-relaxed max-w-xs mx-auto">
+            Coach Cass AI provides perspectives for personal growth and entertainment. This is not a replacement for professional therapy, counseling, or medical care. If you are in crisis, contact a licensed professional or emergency services.
+          </p>
         </div>
       </div>
     </div>

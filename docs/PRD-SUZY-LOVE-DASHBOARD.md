@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Love Life Dashboard (Feature #4)
+# PRD: Coach Cass AI — Love Life Dashboard (Feature #4)
 
 **Date:** May 3, 2026
 **Status:** Draft

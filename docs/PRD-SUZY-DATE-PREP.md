@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Date Prep Mode (Feature #3)
+# PRD: Coach Cass AI — Date Prep Mode (Feature #3)
 
 **Date:** May 3, 2026
 **Status:** Draft

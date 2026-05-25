@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Photo Feedback (Feature #9)
+# PRD: Coach Cass AI — Photo Feedback (Feature #9)
 
 **Date:** May 3, 2026
 **Status:** Draft

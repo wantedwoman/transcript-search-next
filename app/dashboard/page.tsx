@@ -299,7 +299,7 @@ export default function DashboardPage() {
             <div className="text-6xl">💫</div>
             <h2 className="text-xl font-headline font-bold text-primary">Start Your Journey</h2>
             <p className="font-body text-secondary/60">
-              Chat with Suzy to begin tracking your love life insights and patterns.
+              Chat to begin tracking your love life insights and patterns.
             </p>
             <Link
               href="/chat"

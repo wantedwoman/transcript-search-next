@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Mood-Based Suzy (Feature #8)
+# PRD: Coach Cass AI — Mood-Based Suzy (Feature #8)
 
 **Date:** May 3, 2026
 **Status:** Draft

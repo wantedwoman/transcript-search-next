@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Date Audit / Post-Date Reflection Tool (Feature #6)
+# PRD: Coach Cass AI — Date Audit / Post-Date Reflection Tool (Feature #6)
 
 **Date:** May 3, 2026
 **Status:** Draft

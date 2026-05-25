@@ -127,7 +127,7 @@ export async function GET() {
         updatedAt: conversation.updated_at,
         lastMessageAt: lastMessage?.created_at || conversation.updated_at || conversation.created_at,
         previewQuestion: firstUserMessage?.content || 'No user message saved',
-        previewAnswer: firstAssistantMessage?.content || 'No Suzy response saved',
+        previewAnswer: firstAssistantMessage?.content || 'No Coach Cass AI response saved',
         messageCount: thread.length,
         tone: insight?.tone || null,
         topics: insight?.topics || [],

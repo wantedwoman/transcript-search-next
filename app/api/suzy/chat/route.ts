@@ -9,6 +9,7 @@ import { generateInsights } from '@/lib/insights/generate-insights';
 import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze-patterns';
 import { matchCourse } from '@/lib/course-mapper/match-course';
 import { getMoodDelivery } from '@/lib/mood/mood-prompts';
+import { saveVaultEntry } from '@/lib/vault/vault-engine';
 
 interface ChatMessage {
   id: string;
@@ -225,21 +226,26 @@ export async function GET(request: Request) {
       .select('id, title, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(50);
       
-    // Load the most recent conversation with its messages
+    // Load ALL messages from ALL conversations and merge chronologically
     let messages: ChatMessage[] = [];
     let latestConversation = null;
     
     if (conversations && conversations.length > 0) {
       latestConversation = conversations[0];
-      const { data: convMessages } = await supabase
+      
+      // Get all conversation IDs
+      const allConvIds = conversations.map(c => c.id);
+      
+      // Fetch all messages from all conversations at once
+      const { data: allMessages } = await supabase
         .from('conversation_messages')
         .select('*')
-        .eq('conversation_id', latestConversation.id)
+        .in('conversation_id', allConvIds)
         .order('created_at', { ascending: true });
         
-      messages = (convMessages || []).map(m => ({
+      messages = (allMessages || []).map(m => ({
         id: m.id,
         content: m.content,
         isUser: m.role === 'user',
@@ -326,31 +332,17 @@ async function saveConversationAndGenerateInsights(
       // Silently ignore pattern detection failures
     });
 
-    // Fire-and-forget vault save — auto-save every Suzy response
+    // Fire-and-forget vault save — auto-save every response (question + answer)
     (async () => {
       try {
-        await supabase.from('vault_entries').insert({
-          user_id: user.id,
-          content: assistantAnswer,
-          heartbeat_link: null,
+        const vaultContent = `Q: ${userQuery}\n\nA: ${assistantAnswer}`;
+        await saveVaultEntry(user.id, {
+          content: vaultContent,
+          user_tag: 'auto-saved',
         });
-        // Count and cap at 100
-        const { count } = await supabase.from('vault_entries')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id);
-        if (count && count > 100) {
-          const { data: oldest } = await supabase.from('vault_entries')
-            .select('id')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: true })
-            .limit(count - 100);
-          if (oldest && oldest.length > 0) {
-            const ids = oldest.map((r: { id: string }) => r.id);
-            await supabase.from('vault_entries').delete().in('id', ids);
-          }
-        }
-      } catch {
-        // Silently ignore vault save failures
+        logger.info(`Vault auto-saved for user ${user.id}, conv ${conversationId}`);
+      } catch (err) {
+        logger.error(`Vault auto-save failed for user ${user.id}`, err);
       }
     })();
 

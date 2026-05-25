@@ -259,8 +259,8 @@ export default function ProfilePage() {
 
         {/* Onboarding Form */}
         <div className="space-y-6">
-          <h2 className="text-xl font-headline font-bold text-primary">Tell Suzy About You</h2>
-          <p className="text-sm font-body text-secondary/60">The more Suzy knows, the better she can help.</p>
+          <h2 className="text-xl font-headline font-bold text-primary">Tell me About You</h2>
+          <p className="text-sm font-body text-secondary/60">The more I know, the better I can help.</p>
 
           {/* Age */}
           <div className="space-y-2">

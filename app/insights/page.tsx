@@ -145,7 +145,7 @@ export default function InsightsPage() {
 
         <main className="flex-1 pt-24 pb-48 px-6 md:px-12 lg:px-24 max-w-2xl mx-auto w-full flex flex-col items-center justify-center space-y-6 relative z-0">
           <div className="text-8xl">💫</div>
-          <h2 className="text-2xl font-headline font-bold text-primary text-center">Chat with Suzy first</h2>
+          <h2 className="text-2xl font-headline font-bold text-primary text-center">Chat first</h2>
           <p className="text-lg font-body text-secondary/60 text-center max-w-md">
             Come back here after a few conversations to see your personal insights and growth patterns.
           </p>
@@ -309,7 +309,7 @@ export default function InsightsPage() {
             <div className="text-6xl">🔮</div>
             <h2 className="text-xl font-headline font-bold text-primary">Insights Are Brewing</h2>
             <p className="font-body text-secondary/60">
-              Chat a bit more with Suzy and your personalized insights will start appearing here.
+              Chat a bit more and your personalized insights will start appearing here.
             </p>
             <Link
               href="/chat"

@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Love Letter / Text Drafting Engine (Feature #2)
+# PRD: Coach Cass AI — Love Letter / Text Drafting Engine (Feature #2)
 
 **Date:** May 3, 2026
 **Status:** Draft

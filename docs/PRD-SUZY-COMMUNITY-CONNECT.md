@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Sis, You're Not Alone / Community Connection (Feature #5)
+# PRD: Coach Cass AI — Sis, You're Not Alone / Community Connection (Feature #5)
 
 **Date:** May 3, 2026
 **Status:** Draft

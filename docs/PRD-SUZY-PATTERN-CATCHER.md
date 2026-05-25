@@ -1,4 +1,4 @@
-# PRD: Suzy AI — Pattern Catcher (Feature #1)
+# PRD: Coach Cass AI — Pattern Catcher (Feature #1)
 
 **Date:** May 3, 2026
 **Status:** Draft → Approved

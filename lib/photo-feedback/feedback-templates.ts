@@ -1,5 +1,5 @@
 /**
- * Prompt templates for Suzy AI Photo Feedback feature.
+ * Prompt templates for Coach Cass AI Photo Feedback feature.
  *
  * CRITICAL RULE: Never critique appearance — only energy/vibe/communication.
  */

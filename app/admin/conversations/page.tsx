@@ -131,7 +131,7 @@ export default function AdminConversationsPage() {
             </Link>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold italic text-[#FF7095] truncate">Client Conversations</h1>
-              <p className="text-sm text-white/45 truncate">One place to review client questions, Suzy replies, and insight summaries.</p>
+              <p className="text-sm text-white/45 truncate">One place to review client questions, Coach Cass AI replies, and insight summaries.</p>
             </div>
           </div>
           <button
@@ -298,7 +298,7 @@ export default function AdminConversationsPage() {
                           <div key={message.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${isUser ? 'bg-[#FF7095] text-white' : 'bg-black/20 text-white/85 border border-white/10'}`}>
                               <div className="text-[11px] uppercase tracking-wider opacity-70 mb-2 font-semibold">
-                                {isUser ? 'Client' : 'Suzy'}
+                                {isUser ? 'Client' : 'Coach Cass AI'}
                               </div>
                               <div className="text-sm leading-6 whitespace-pre-wrap">{message.content}</div>
                               <div className="text-[11px] opacity-60 mt-3">

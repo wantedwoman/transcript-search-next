@@ -49,7 +49,7 @@ export default async function AdminPage() {
             <Link href="/chat" className="text-[#ecbaba] hover:text-white transition-colors">
               <span className="material-symbols-outlined text-2xl">arrow_back</span>
             </Link>
-            <h1 className="text-2xl font-bold italic text-[#FF7095]">Suzy Admin</h1>
+            <h1 className="text-2xl font-bold italic text-[#FF7095]">Coach Cass AI Admin</h1>
           </div>
           <div className="text-sm text-white/50">{user.email}</div>
         </div>
@@ -113,7 +113,7 @@ export default async function AdminPage() {
               <h2 className="text-xl font-bold">Client Conversations</h2>
             </div>
             <p className="text-white/60 text-sm">
-              Review client questions, Suzy replies, timestamps, and insight summaries in one view.
+              Review client questions, Coach Cass AI replies, timestamps, and insight summaries in one view.
             </p>
           </Link>
 

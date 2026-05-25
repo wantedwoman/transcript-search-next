@@ -154,7 +154,7 @@ export default function VaultPage() {
             </p>
             {!searchQuery && (
               <p className="text-secondary/30 font-body text-sm">
-                Save Suzy&apos;s responses you want to revisit anytime.
+                Save Coach Cass AI&apos;s responses you want to revisit anytime.
               </p>
             )}
           </div>

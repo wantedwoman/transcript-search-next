@@ -1,5 +1,5 @@
 /**
- * Mood-Based Suzy — System prompt variations per mode.
+ * Mood-Based Coach Cass AI — System prompt variations per mode.
  *
  * Core knowledge base (transcript integration, emotional intelligence,
  * boundary/security rules) stays the same. Only the delivery tone changes.

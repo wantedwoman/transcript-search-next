@@ -103,7 +103,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
             <textarea
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
-              placeholder="Type what you're feeling... Suzy will help you say it better."
+              placeholder="Type what you're feeling... Coach Cass AI will help you say it better."
               className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-on-surface font-body text-base placeholder:text-secondary/30 focus:outline-none focus:border-primary/40 resize-none"
               rows={4}
               maxLength={2000}
@@ -170,7 +170,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
               <div className="border border-outline-variant/10 rounded-lg overflow-hidden">
                 <div className="px-4 py-2 bg-surface-container-low border-b border-outline-variant/10">
                   <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/50">
-                    Before — Your Original
+                    Before: Your Original
                   </span>
                 </div>
                 <div className="px-4 py-3 text-secondary/70 font-body text-sm whitespace-pre-wrap">
@@ -181,7 +181,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
               <div className="border border-primary/30 rounded-lg overflow-hidden">
                 <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
                   <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-primary">
-                    After — Suzy&apos;s Draft
+                    After: Coach Cass AI&apos;s Draft
                   </span>
                 </div>
                 <div className="px-4 py-3 text-on-surface font-body text-base whitespace-pre-wrap">
