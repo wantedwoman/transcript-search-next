@@ -18,12 +18,27 @@ interface Carousel {
   created_at: string;
 }
 
+function slideImageUrl(carouselId: string, slideNumber: number): string {
+  return `/api/admin/insights/carousels/${carouselId}/slide/${slideNumber}/image`;
+}
+
+function slideImageFilename(carouselTitle: string, slideNumber: number): string {
+  const slug = carouselTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `${slug || 'carousel'}-slide-${slideNumber}.png`;
+}
+
 export default function CarouselsPage() {
   const [carousels, setCarousels] = useState<Carousel[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedCarousel, setExpandedCarousel] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; alt: string; filename: string } | null>(
+    null
+  );
 
   useEffect(() => {
     fetchCarousels();
@@ -142,22 +157,53 @@ export default function CarouselsPage() {
               {/* Expanded Slides */}
               {expandedCarousel === carousel.id && (
                 <div className="px-6 pb-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {carousel.slides.map((slide) => (
-                      <div
-                        key={slide.slide_number}
-                        className={`rounded-xl border p-5 ${slideTypeColors[slide.type] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-semibold uppercase tracking-wider">
-                            {slide.type}
-                          </span>
-                          <span className="text-xs opacity-50">{slide.slide_number}/5</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {carousel.slides.map((slide) => {
+                      const imageUrl = slideImageUrl(carousel.id, slide.slide_number);
+                      const filename = slideImageFilename(carousel.title, slide.slide_number);
+                      return (
+                        <div
+                          key={slide.slide_number}
+                          className={`rounded-xl border overflow-hidden ${slideTypeColors[slide.type] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLightbox({ url: imageUrl, alt: slide.headline, filename })
+                            }
+                            className="block w-full aspect-square bg-black/30 cursor-zoom-in"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={imageUrl}
+                              alt={slide.headline}
+                              width={1080}
+                              height={1080}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                          <div className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold uppercase tracking-wider">
+                                {slide.type}
+                              </span>
+                              <span className="text-xs opacity-50">{slide.slide_number}/5</span>
+                            </div>
+                            <h4 className="font-bold text-sm mb-1">{slide.headline}</h4>
+                            <p className="text-xs opacity-80 leading-relaxed mb-3">{slide.body}</p>
+                            <a
+                              href={imageUrl}
+                              download={filename}
+                              className="inline-flex items-center gap-1 text-xs font-semibold underline underline-offset-2 hover:opacity-80"
+                            >
+                              <span className="material-symbols-outlined text-sm">download</span>
+                              Download PNG
+                            </a>
+                          </div>
                         </div>
-                        <h4 className="font-bold text-sm mb-2">{slide.headline}</h4>
-                        <p className="text-xs opacity-80 leading-relaxed">{slide.body}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="flex items-center gap-3 pt-2">
                     <span className="text-xs text-white/30">
@@ -170,6 +216,45 @@ export default function CarouselsPage() {
           ))
         )}
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6"
+          onClick={() => setLightbox(null)}
+        >
+          <div
+            className="relative max-w-lg w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightbox.url}
+              alt={lightbox.alt}
+              width={1080}
+              height={1080}
+              className="w-full h-auto rounded-xl border border-white/10"
+            />
+            <div className="flex items-center justify-between mt-4">
+              <a
+                href={lightbox.url}
+                download={lightbox.filename}
+                className="px-4 py-2 rounded-lg bg-[#FF7095] hover:bg-[#FF7095]/80 text-white text-sm font-semibold transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-lg">download</span>
+                Download PNG
+              </a>
+              <button
+                type="button"
+                onClick={() => setLightbox(null)}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

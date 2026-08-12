@@ -5,3 +5,4 @@ data
 .worktrees/
 .env.local
 .env*.local
+public/carousels/

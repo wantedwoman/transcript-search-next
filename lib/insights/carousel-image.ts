@@ -5,30 +5,31 @@
  * IG format: 1080x1080px
  */
 
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, readFile } from 'fs/promises';
 import path from 'path';
+import { createElement } from 'react';
+import { ImageResponse } from '@vercel/og';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
-// We'll use satori for server-side rendering (same engine as @vercel/og)
-// If @vercel/og is available, we use it. Otherwise, we generate HTML that can be
-// converted to images via a headless browser or saved as-is for manual processing.
+// We use @vercel/og (satori + resvg) to render slides to real PNG buffers,
+// in addition to the plain HTML output kept for quick text preview/debugging.
 
-interface CarouselSlide {
+export interface CarouselSlide {
   slide_number: number;
   headline: string;
   body: string;
   type: 'hook' | 'insight' | 'tip' | 'cta';
 }
 
-interface CarouselData {
+export interface CarouselData {
   title: string;
   topic: string;
   slides: CarouselSlide[];
 }
 
-const SLIDE_WIDTH = 1080;
-const SLIDE_HEIGHT = 1080;
+export const SLIDE_WIDTH = 1080;
+export const SLIDE_HEIGHT = 1080;
 
 // Slide type configurations
 const SLIDE_CONFIGS: Record<string, { bg: string; accent: string; textColor: string }> = {
@@ -37,6 +38,192 @@ const SLIDE_CONFIGS: Record<string, { bg: string; accent: string; textColor: str
   tip: { bg: '#1A0A1F', accent: '#FF7095', textColor: '#FFFFFF' },
   cta: { bg: '#4D1D57', accent: '#FFD700', textColor: '#FFFFFF' },
 };
+
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+// Fonts are bundled under public/fonts (TTF, static instances of Manrope,
+// each well under Satori's 500KB per-font limit) so Satori can embed real
+// glyphs instead of falling back to tofu/missing-glyph boxes.
+let fontsPromise: Promise<{ regular: Buffer; bold: Buffer }> | null = null;
+
+async function loadFonts(): Promise<{ regular: Buffer; bold: Buffer }> {
+  if (!fontsPromise) {
+    fontsPromise = (async () => {
+      const fontsDir = path.join(process.cwd(), 'public', 'fonts');
+      const [regular, bold] = await Promise.all([
+        readFile(path.join(fontsDir, 'Manrope-Regular.ttf')),
+        readFile(path.join(fontsDir, 'Manrope-Bold.ttf')),
+      ]);
+      return { regular, bold };
+    })();
+  }
+  return fontsPromise;
+}
+
+/**
+ * Build the Satori-compatible element tree for a single slide.
+ * Every text-bearing node is an explicit flex container, per Satori's
+ * layout constraints (flexbox only, no implicit block layout).
+ */
+function buildSlideElement(slide: CarouselSlide, slideIndex: number) {
+  const config = SLIDE_CONFIGS[slide.type] || SLIDE_CONFIGS.tip;
+  const slideNumber = slide.slide_number || slideIndex + 1;
+
+  return createElement(
+    'div',
+    {
+      style: {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        background: config.bg,
+        color: config.textColor,
+        fontFamily: 'Manrope',
+        padding: 80,
+        position: 'relative',
+      },
+    },
+    createElement('div', {
+      style: {
+        display: 'flex',
+        position: 'absolute',
+        width: 400,
+        height: 400,
+        borderRadius: 999,
+        background: `${config.accent}15`,
+        top: -100,
+        right: -100,
+      },
+    }),
+    createElement('div', {
+      style: {
+        display: 'flex',
+        position: 'absolute',
+        width: 300,
+        height: 300,
+        borderRadius: 999,
+        background: `${config.accent}10`,
+        bottom: -80,
+        left: -80,
+      },
+    }),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          background: `${config.accent}20`,
+          border: `1px solid ${config.accent}40`,
+          borderRadius: 100,
+          padding: '8px 20px',
+          fontSize: 14,
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          color: config.accent,
+          marginBottom: 40,
+        },
+      },
+      slide.type.toUpperCase()
+    ),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          fontSize: 52,
+          fontWeight: 700,
+          lineHeight: 1.15,
+          textAlign: 'center',
+          marginBottom: 32,
+          maxWidth: 800,
+          letterSpacing: '-0.02em',
+        },
+      },
+      slide.headline
+    ),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          fontSize: 28,
+          fontWeight: 400,
+          lineHeight: 1.6,
+          textAlign: 'center',
+          opacity: 0.85,
+          maxWidth: 700,
+        },
+      },
+      slide.body
+    ),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          position: 'absolute',
+          bottom: 40,
+          right: 60,
+          fontSize: 18,
+          fontWeight: 700,
+          opacity: 0.3,
+        },
+      },
+      `${slideNumber}/5`
+    ),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          position: 'absolute',
+          bottom: 40,
+          left: 60,
+          fontSize: 16,
+          fontWeight: 700,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: config.accent,
+          opacity: 0.6,
+        },
+      },
+      'WANTED Woman'
+    )
+  );
+}
+
+/**
+ * Render a single carousel slide to a PNG buffer at 1080x1080 using
+ * @vercel/og (Satori + resvg). This is safe to call from a Node-runtime
+ * route handler on every request (no filesystem writes required).
+ */
+export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number): Promise<Buffer> {
+  const fonts = await loadFonts();
+  const element = buildSlideElement(slide, slideIndex);
+
+  const imageResponse = new ImageResponse(element, {
+    width: SLIDE_WIDTH,
+    height: SLIDE_HEIGHT,
+    fonts: [
+      { name: 'Manrope', data: fonts.regular, weight: 400, style: 'normal' },
+      { name: 'Manrope', data: fonts.bold, weight: 700, style: 'normal' },
+    ],
+  });
+
+  const arrayBuffer = await imageResponse.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 /**
  * Generate HTML for a carousel slide.
@@ -180,10 +367,7 @@ export async function renderCarouselImages(
   await mkdir(dir, { recursive: true });
 
   const slideFiles: string[] = [];
-  const slug = carousel.title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
+  const slug = slugify(carousel.title);
 
   for (let i = 0; i < carousel.slides.length; i++) {
     const slide = carousel.slides[i];
@@ -201,28 +385,45 @@ export async function renderCarouselImages(
 }
 
 /**
- * Try to use @vercel/og to render slides as PNG.
- * Falls back to HTML file generation if @vercel/og is not available.
+ * Render all slides of a carousel to real 1080x1080 PNG files on disk using
+ * @vercel/og (satori + resvg), in addition to the HTML preview files.
+ *
+ * Note: on serverless platforms the filesystem is ephemeral, so these written
+ * files are best-effort (useful for local generation/testing). The admin
+ * dashboard renders/downloads PNGs on demand via the OG-image API route
+ * (see app/api/admin/insights/carousels/[id]/slide/[slideNumber]/image),
+ * which calls `renderSlideToPNG` directly and never depends on these files
+ * existing.
  */
 export async function renderCarouselPNGs(
   carousel: CarouselData,
   outputDir?: string
 ): Promise<{ htmlFiles: string[]; pngFiles: string[] }> {
-  // First, always generate HTML files
+  // Always generate the HTML preview files too.
   const htmlFiles = await renderCarouselImages(carousel, outputDir);
 
-  // Try @vercel/og rendering
-  // Note: @vercel/og works as a route handler, not a library function.
-  // For server-side rendering, we'd need to use satori directly.
-  // For now, we generate HTML files that can be:
-  // 1. Served and screenshot'd via the admin dashboard
-  // 2. Converted using Puppeteer/Playwright in a serverless function
-  // 3. Uploaded to a design tool for final polish
+  const dir = outputDir || path.join(process.cwd(), 'public', 'carousels');
+  await mkdir(dir, { recursive: true });
 
-  logger.info(`Carousel "${carousel.title}" rendered as HTML. PNG conversion requires @vercel/og route or browser automation.`);
+  const slug = slugify(carousel.title);
+  const pngFiles: string[] = [];
 
-  return {
-    htmlFiles,
-    pngFiles: [], // PNG conversion would require satori + resvg or browser automation
-  };
+  try {
+    for (let i = 0; i < carousel.slides.length; i++) {
+      const slide = carousel.slides[i];
+      const buffer = await renderSlideToPNG(slide, i);
+
+      const filename = `${slug}-slide-${i + 1}.png`;
+      const filepath = path.join(dir, filename);
+
+      await writeFile(filepath, buffer);
+      pngFiles.push(filepath);
+    }
+
+    logger.info(`Rendered ${pngFiles.length} carousel PNGs for "${carousel.title}"`);
+  } catch (error) {
+    logger.error(`Failed to render carousel PNGs for "${carousel.title}"`, error);
+  }
+
+  return { htmlFiles, pngFiles };
 }
