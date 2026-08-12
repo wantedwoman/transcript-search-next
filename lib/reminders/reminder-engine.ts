@@ -1,6 +1,10 @@
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
-import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/utils/logger';
+
+export type MessageStyle = 'gentle' | 'direct' | 'hype';
+
+export const MESSAGE_STYLES: MessageStyle[] = ['gentle', 'direct', 'hype'];
 
 export interface UserReminder {
   id: string;
@@ -9,6 +13,37 @@ export interface UserReminder {
   remind_at: string;
   is_sent: boolean;
   created_at: string;
+  // Optional because older rows (or environments where the
+  // 20260811000001_add_reminder_message_style.sql migration hasn't been
+  // applied yet) may not have this column populated.
+  message_style?: MessageStyle;
+}
+
+/**
+ * Builds the check-in message Coach Cass AI sends when a reminder fires,
+ * varying the tone based on the member's chosen message style.
+ */
+export function buildReminderMessage(topic: string, style?: string): string {
+  switch (style) {
+    case 'direct':
+      return `Reminder: you said you'd check back in on "${topic}". Where are you at with it?`;
+    case 'hype':
+      return `Sis!! Time to check in — how's "${topic}" coming along?? Let's go! 🔥`;
+    case 'gentle':
+    default:
+      return `Hey Sis, it's been a while since we talked about ${topic}. How's that going?`;
+  }
+}
+
+/**
+ * True when a Supabase/PostgREST error indicates the message_style column
+ * doesn't exist yet on this environment's user_reminders table (migration
+ * 20260811000001_add_reminder_message_style.sql not yet applied).
+ */
+function isMissingMessageStyleColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return error.code === 'PGRST204' || (msg.includes('message_style') && msg.includes('column'));
 }
 
 /**
@@ -19,7 +54,8 @@ export interface UserReminder {
 export async function createReminder(
   userId: string,
   topic: string,
-  remindAt: Date
+  remindAt: Date,
+  messageStyle: MessageStyle = 'gentle'
 ): Promise<{ reminder: UserReminder | null; error?: string }> {
   const supabase = createServiceRoleClient();
 
@@ -40,16 +76,32 @@ export async function createReminder(
     return { reminder: null, error: 'You already have an active reminder. Cancel it first to set a new one.' };
   }
 
-  const { data: reminder, error: insertError } = await supabase
+  const basePayload = {
+    user_id: userId,
+    topic,
+    remind_at: remindAt.toISOString(),
+    is_sent: false,
+  };
+
+  let { data: reminder, error: insertError } = await supabase
     .from('user_reminders')
-    .insert({
-      user_id: userId,
-      topic,
-      remind_at: remindAt.toISOString(),
-      is_sent: false,
-    })
+    .insert({ ...basePayload, message_style: messageStyle })
     .select()
     .single();
+
+  if (insertError && isMissingMessageStyleColumn(insertError)) {
+    // The message_style column migration hasn't been applied on this
+    // environment yet — fall back to the base columns so reminder
+    // creation still works. The chosen style just won't persist until
+    // supabase/migrations/20260811000001_add_reminder_message_style.sql
+    // is applied.
+    logger.warn('user_reminders.message_style column not found — creating reminder without it');
+    ({ data: reminder, error: insertError } = await supabase
+      .from('user_reminders')
+      .insert(basePayload)
+      .select()
+      .single());
+  }
 
   if (insertError) {
     logger.error('Failed to create reminder', insertError);
@@ -165,7 +217,7 @@ export async function sendReminder(reminder: UserReminder): Promise<void> {
     return;
   }
 
-  const reminderMessage = `Hey Sis, it's been a while since we talked about ${reminder.topic}. How's that going?`;
+  const reminderMessage = buildReminderMessage(reminder.topic, reminder.message_style);
 
   // Insert Coach Cass AI's reminder message
   const { error: msgError } = await supabase
