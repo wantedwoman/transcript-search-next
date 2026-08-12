@@ -170,6 +170,8 @@ export class OpenRouterAnswerGenerator {
         });
       }
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 50000);
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -182,7 +184,9 @@ export class OpenRouterAnswerGenerator {
           temperature: 0.45,
           max_tokens: 800,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error(`OpenRouter API error: ${response.status} - ${await response.text()}`);
