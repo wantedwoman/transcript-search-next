@@ -343,6 +343,10 @@ export default function SuzyChatWindow() {
                 <span className="material-symbols-outlined">edit_note</span>
                 <span className="font-label font-semibold text-lg">Rephrase</span>
               </button>
+              <button onClick={() => { setDrawerOpen(false); setDateAuditOpen(true); }} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface hover:text-primary w-full text-left">
+                <span className="material-symbols-outlined">search_check</span>
+                <span className="font-label font-semibold text-lg">Date Audit</span>
+              </button>
               <div className="border-t border-outline-variant/20 my-4" />
               <button onClick={handleSignOut} className="flex items-center gap-4 px-4 py-4 rounded-lg hover:bg-surface-container-low transition-colors text-error/80 hover:text-error w-full text-left">
                 <span className="material-symbols-outlined">logout</span>
