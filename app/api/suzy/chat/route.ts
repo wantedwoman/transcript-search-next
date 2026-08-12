@@ -10,6 +10,12 @@ import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze
 import { matchCourse } from '@/lib/course-mapper/match-course';
 import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 import { saveVaultEntry } from '@/lib/vault/vault-engine';
+import {
+  isHarmRiskQuery,
+  findMatchedHarmPattern,
+  classifyHarmSeverity,
+  handleHarmAlert,
+} from '@/lib/harm/alert-team';
 
 interface ChatMessage {
   id: string;
@@ -40,40 +46,12 @@ const SYSTEM_EXTRACTION_PATTERNS = [
   /tokens?/i,
 ];
 
-const HARM_PATTERNS = [
-  /kill myself/i,
-  /want to die/i,
-  /end my life/i,
-  /hurt myself/i,
-  /self[- ]harm/i,
-  /suicid(e|al)/i,
-  /overdose/i,
-  /cut myself/i,
-  /how do i hurt myself/i,
-  /how do i kill myself/i,
-  /hurt (him|her|them|someone)/i,
-  /kill (him|her|them|someone)/i,
-  /how do i hurt (him|her|them|someone)/i,
-  /make (him|her|them|someone) suffer/i,
-  /violent revenge/i,
-  /plan to hurt/i,
-  /plan to kill/i,
-];
-
 function isSystemExtractionQuery(query: string): boolean {
   return SYSTEM_EXTRACTION_PATTERNS.some((pattern) => pattern.test(query));
 }
 
-function isHarmRiskQuery(query: string): boolean {
-  return HARM_PATTERNS.some((pattern) => pattern.test(query));
-}
-
 function protectedReply() {
   return "I focus on giving you the best guidance I can. I don't get into how I'm built, but I've got you.";
-}
-
-function harmSafetyReply() {
-  return "I'm really glad you said something. I hear how heavy this is right now.\n\nI can't help with anything that could put you or someone else in danger, but I do want to make sure you're supported.\n\nPlease reach out to a licensed mental health professional or someone you trust as soon as possible. If you're in immediate danger or feel like you might act on this, call 911 right now.\n\nYou don't have to carry this alone.";
 }
 
 export async function POST(request: Request) {
@@ -116,8 +94,21 @@ export async function POST(request: Request) {
 
     if (isHarmRiskQuery(cleanQuery)) {
       logger.warn('HIGH RISK harm-related message detected');
+
+      // CC-09: alert the team + write a harm_alerts row. Never blocks the reply.
+      const user = await getAuthenticatedUser();
+      const matchedPattern = findMatchedHarmPattern(cleanQuery) || 'unknown';
+      const severity = classifyHarmSeverity(cleanQuery);
+      const { reply } = await handleHarmAlert(
+        user?.id || '',
+        cleanQuery,
+        matchedPattern,
+        severity,
+        user?.email
+      );
+
       return NextResponse.json({
-        answer: harmSafetyReply(),
+        answer: reply,
         sources: [],
       });
     }
