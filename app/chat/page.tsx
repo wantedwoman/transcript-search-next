@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import SuzyChatWindow from '../../components/chat/SuzyChatWindow';
+import HomeScreenGuide from '../../components/home-screen/HomeScreenGuide';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -15,5 +16,10 @@ export default function ChatPage() {
     }
   }, [router]);
 
-  return <SuzyChatWindow />;
+  return (
+    <>
+      <HomeScreenGuide />
+      <SuzyChatWindow />
+    </>
+  );
 }
