@@ -10,6 +10,7 @@ import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze
 import { matchCourse } from '@/lib/course-mapper/match-course';
 import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 import { saveVaultEntry } from '@/lib/vault/vault-engine';
+import { getWelcomeMessage } from '@/lib/first-engagement/sequence';
 
 interface ChatMessage {
   id: string;
@@ -221,7 +222,7 @@ export async function GET(request: Request) {
     }
     
     // Get all conversations for this user (latest first)
-    const { data: conversations } = await supabase
+    let { data: conversations } = await supabase
       .from('conversations')
       .select('id, title, created_at')
       .eq('user_id', user.id)
@@ -252,7 +253,33 @@ export async function GET(request: Request) {
         timestamp: new Date(m.created_at),
       }));
     }
-    
+
+    // Fresh member with zero conversations — fire the T0 welcome on first chat load.
+    // getWelcomeMessage creates the conversation + inserts the welcome as the
+    // first assistant message. Already-welcomed / existing users are untouched:
+    // this block only runs for members with no conversations yet.
+    if (!conversations || conversations.length === 0) {
+      try {
+        const welcome = await getWelcomeMessage(user.id);
+        if (welcome.conversationId) {
+          conversations = [{
+            id: welcome.conversationId,
+            title: null,
+            created_at: new Date().toISOString(),
+          }];
+          latestConversation = conversations[0];
+          messages = [{
+            id: `welcome-${welcome.conversationId}`,
+            content: welcome.content,
+            isUser: false,
+            timestamp: new Date(),
+          }];
+        }
+      } catch (err) {
+        logger.error('Failed to fire T0 welcome on first chat load', err);
+      }
+    }
+
     return NextResponse.json({
       conversations: conversations || [],
       activeConversationId: latestConversation?.id || null,
