@@ -85,13 +85,11 @@ export async function POST(request: Request) {
 
     const cleanQuery = query.trim();
 
-    if (isSystemExtractionQuery(cleanQuery)) {
-      return NextResponse.json({
-        answer: protectedReply(),
-        sources: [],
-      });
-    }
-
+    // CC-09 fail-closed safety: imminent harm must ALWAYS get the 988 safety
+    // reply + harm alert, regardless of how it is phrased. Evaluate harm FIRST
+    // so that harm messages that also look like system-extraction attempts are
+    // still routed to the safety path (harm takes precedence over the
+    // system-extraction guard).
     if (isHarmRiskQuery(cleanQuery)) {
       logger.warn('HIGH RISK harm-related message detected');
 
@@ -109,6 +107,13 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         answer: reply,
+        sources: [],
+      });
+    }
+
+    if (isSystemExtractionQuery(cleanQuery)) {
+      return NextResponse.json({
+        answer: protectedReply(),
         sources: [],
       });
     }
