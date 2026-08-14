@@ -51,8 +51,9 @@ export default function HomeScreenGuide() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Mobile only (matches the `md:` Tailwind breakpoint).
-    if (window.innerWidth >= 768) return;
+    // Show on every viewport size. The platform-specific variant is chosen by
+    // user agent in detectPlatform(), so a desktop viewport gets the
+    // "Desktop Chrome" install hint without any native prompt.
     if (isHomeScreenDismissed()) return;
 
     setPlatform(detectPlatform());
