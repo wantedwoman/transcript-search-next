@@ -92,13 +92,21 @@ export const HARM_PATTERNS = [
  * fires inside "I dont want to hurt him, I love him". We suppress a match only
  * when the nearest preceding negation clearly targets the self-harm clause:
  * every word between the negation and the match must be a benign framing word
- * ("want to", "going to", "ever", ...). Anything else — a second clause, "stop
- * cutting myself", "know why I want to die" — leaves the alert firing, so real
- * risk is never silently dropped.
+ * ("want to", "going to", "ever", "desire to", "thinking about", ...).
+ * Anything else — a second clause, "stop cutting myself", "know why I want to
+ * die" — leaves the alert firing, so real risk is never silently dropped.
  *
  * Ambivalent nested desire is preserved: "sometimes I don't want to want to
  * die" still fires because the clause contains two "want to" framings, meaning
  * the negation targets the outer desire, not the suicidal thought itself.
+ *
+ * The framing vocabulary (CC-09 cycle-3 negation fix) is deliberately kept to
+ * words that appear in a clear denial of self-harm intent — "no desire to",
+ * "no intention of", "no plans to", "would never consider", "not thinking
+ * about", "never had thoughts of" — plus the small function words those
+ * phrasings carry ("of", "about", "a", "have"). A phrase whose negated clause
+ * contains a non-benign word ("stop", "know", "why", "but", "keep", ...) is
+ * not a clean denial and keeps the alert firing.
  */
 const NEGATION_RE =
   /\b(?:not|n't|never|no longer|no|won't|wont|wouldn't|wouldnt|shouldn't|shouldnt|can't|cant|cannot|don't|dont|doesn't|doesnt|didn't|didnt|haven't|havent|hasn't|hasnt|isn't|isnt|wasn't|wasnt|weren't|werent|ain't|aint)\b/i;
@@ -131,6 +139,29 @@ const BENIGN_FRAMING_WORDS = new Set([
   'now',
   'today',
   'tonight',
+  // Clear-denial vocabulary (CC-09 cycle-3 negation fix): common self-harm
+  // denials frame the negated clause with intent/desire nouns, the gerund
+  // "thinking about", or the past "had/have", so those words must be treated
+  // as benign framing for the guard to suppress them.
+  'a',
+  'about',
+  'an',
+  'any',
+  'consider',
+  'considered',
+  'desire',
+  'desires',
+  'had',
+  'have',
+  'intend',
+  'intention',
+  'intentions',
+  'of',
+  'plan',
+  'plans',
+  'thinking',
+  'thought',
+  'thoughts',
 ]);
 
 const NEGATION_WINDOW_CHARS = 120;
@@ -159,6 +190,15 @@ function isNegatedMatch(query: string, matchIndex: number, matchText: string): b
     if (NEGATION_RE.test(beforeMatch[i])) negIdx = i;
   }
   if (negIdx === -1) return false;
+
+  // "not just X" hedge — "I'm not just thinking about killing myself, I
+  // actually plan to do it" is an escalation, not a denial. When the token
+  // right after the negation is a hedge intensifier the negation is targeting
+  // the intensity ("not ONLY X"), so the self-harm clause is not clearly
+  // negated and the alert keeps firing.
+  if (beforeMatch[negIdx + 1] === 'just' || beforeMatch[negIdx + 1] === 'simply') {
+    return false;
+  }
 
   // Framing check — every word between the negation and the match must be
   // benign framing (e.g. "don't want to die", "not going to hurt myself").
