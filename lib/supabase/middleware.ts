@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { CookieOptions } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { checkGhlTags } from '../ghl/check-tags';
-
-const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
+import { ADMIN_EMAILS } from '../config/admin';
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
