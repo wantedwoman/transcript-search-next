@@ -31,8 +31,12 @@ export async function generateInsights(
   conversationId: string,
   messages: ConversationMessage[]
 ): Promise<void> {
-  // Don't generate insights for very short conversations
-  if (messages.length < 2) return;
+  // Don't generate insights for empty conversations. The chat route always
+  // passes exactly 2 messages (user + assistant) for a single exchange — that
+  // is the minimal real conversation and must NOT be skipped, otherwise the
+  // insight → aggregate → carousel pipeline starves. Guard only against truly
+  // empty input.
+  if (messages.length < 1) return;
 
   try {
     // Format messages for the LLM
