@@ -8,14 +8,16 @@
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import path from 'path';
 import { createElement } from 'react';
-// Import the standalone @vercel/og Node build DIRECTLY (not via `@vercel/og`
-// package-resolution or `next/og`): Next 16's Turbopack rewrites bare
-// `@vercel/og` imports to `next/og`, whose serverless build loads
-// `next/dist/compiled/@vercel/og/index.node.js` — a file Next 16 does not
-// ship to lambdas ("Cannot find module ..."). Pointing at the package's own
-// dist/index.node.js (kept external via next.config serverExternalPackages)
-// bypasses the broken rewrite entirely.
-import { ImageResponse } from '@vercel/og/dist/index.node.js';
+// Load the standalone @vercel/og Node build from a VENDORED copy inside the
+// repo (lib/vendor/og), imported by relative path. Next 16's Turbopack
+// rewrites bare `@vercel/og` imports (and even createRequire('@vercel/og'))
+// to `next/og`, whose serverless build loads
+// `next/dist/compiled/@vercel/og/index.node.js` — a file Vercel does not
+// ship to lambdas ("Cannot find module"). Vendoring bypasses package
+// resolution entirely: Turbopack bundles index.node.js in, and its asset
+// reads (Geist-Regular.ttf, resvg.wasm, yoga.wasm via import.meta.url)
+// resolve to the vendored siblings.
+import { ImageResponse } from '../vendor/og/index.node.js';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
