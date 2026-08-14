@@ -8,9 +8,13 @@ export const T0_WELCOME_MESSAGE =
 export const T24H_NUDGE_MESSAGE =
   'How did your first session go? One small step is still a step forward.';
 
-const T24H_MS = 24 * 60 * 60 * 1000;
+export const T2_4_NUDGE_MESSAGE =
+  'Just checking in — how is Coach Cass going for you? No pressure — I am here whenever you are ready to talk.';
 
-type Stage = 't0' | 't24h';
+const T24H_MS = 24 * 60 * 60 * 1000;
+const T2_4_MIN_MS = 2 * 60 * 60 * 1000;
+
+type Stage = 't0' | 't2_4' | 't24h';
 
 export interface NudgeResult {
   inAppSent: boolean;
@@ -52,6 +56,31 @@ export async function hasSentT24hNudge(userId: string): Promise<boolean> {
   return hasAssistantMessage(userId, T24H_NUDGE_MESSAGE);
 }
 
+export async function hasSentT2_4Nudge(userId: string): Promise<boolean> {
+  return hasAssistantMessage(userId, T2_4_NUDGE_MESSAGE);
+}
+
+/** True if the member has sent a user-role message at/after `sinceIso` (i.e. engaged since T0). */
+export async function hasUserMessageSince(userId: string, sinceIso: string): Promise<boolean> {
+  const supabase = createServiceRoleClient();
+  const { data: convs, error: convError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId);
+  if (convError) { logger.error('hasUserMessageSince: conversations lookup failed', convError); return false; }
+  const conversationIds = (convs || []).map((c: { id: string }) => c.id);
+  if (conversationIds.length === 0) return false;
+  const { data, error } = await supabase
+    .from('conversation_messages')
+    .select('id')
+    .in('conversation_id', conversationIds)
+    .eq('role', 'user')
+    .gte('created_at', sinceIso)
+    .limit(1);
+  if (error) { logger.error('hasUserMessageSince: message lookup failed', error); return false; }
+  return (data?.length ?? 0) > 0;
+}
+
 export async function getFirstConversationCreatedAt(userId: string): Promise<string | null> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
@@ -66,13 +95,19 @@ export async function getFirstConversationCreatedAt(userId: string): Promise<str
 
 export async function getNextNudgeStage(userId: string): Promise<Stage | 'none'> {
   if (!(await hasSeenFirstWelcome(userId))) return 't0';
-  if (await hasSentT24hNudge(userId)) return 'none';
-  // Respect 24h timing gate for cron — manual trigger bypasses this.
   const createdAt = await getFirstConversationCreatedAt(userId);
   if (createdAt) {
     const age = Date.now() - new Date(createdAt).getTime();
+    // T+2-4h in-app nudge (F-3): fires once for members idle since T0 (no user message in the window).
+    if (age >= T2_4_MIN_MS && age < T24H_MS) {
+      if (!(await hasSentT2_4Nudge(userId)) && !(await hasUserMessageSince(userId, createdAt))) {
+        return 't2_4';
+      }
+    }
+    // Respect 24h timing gate for cron — manual trigger bypasses this.
     if (age < T24H_MS) return 'none';
   }
+  if (await hasSentT24hNudge(userId)) return 'none';
   return 't24h';
 }
 
@@ -147,6 +182,23 @@ export async function sendFirstNudge(
     const conversationId = await insertNudgeMessage(userId, T0_WELCOME_MESSAGE);
     if (!conversationId) { return { inAppSent: false, emailSent: false, error: 'Failed to insert T0 welcome' }; }
     logger.info(`sendFirstNudge: T0 welcome sent to user ${userId}`);
+    return { inAppSent: true, emailSent: false };
+  }
+  if (stage === 't2_4') {
+    if (!(await hasSeenFirstWelcome(userId))) { return { inAppSent: false, emailSent: false, error: 'Not welcomed yet' }; }
+    if (await hasSentT2_4Nudge(userId)) { return { inAppSent: false, emailSent: false, error: 'T+2-4h nudge already sent' }; }
+    // T+2-4h window + idle gate (bypassed for manual trigger). In-app only — NO email.
+    if (!options?.bypassTimingGate) {
+      const createdAt = await getFirstConversationCreatedAt(userId);
+      if (createdAt) {
+        const age = Date.now() - new Date(createdAt).getTime();
+        if (age < T2_4_MIN_MS || age >= T24H_MS) { return { inAppSent: false, emailSent: false, error: 'Not in T+2-4h window' }; }
+        if (await hasUserMessageSince(userId, createdAt)) { return { inAppSent: false, emailSent: false, error: 'Member engaged since T0' }; }
+      }
+    }
+    const conversationId = await insertNudgeMessage(userId, T2_4_NUDGE_MESSAGE);
+    if (!conversationId) { return { inAppSent: false, emailSent: false, error: 'Failed to insert T+2-4h nudge' }; }
+    logger.info(`sendFirstNudge: T+2-4h nudge sent to user ${userId} (inApp=true, email=false)`);
     return { inAppSent: true, emailSent: false };
   }
   // stage === 't24h'
