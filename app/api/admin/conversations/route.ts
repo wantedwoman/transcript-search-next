@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 
 type ConversationRow = {
   id: string;
@@ -29,8 +30,6 @@ type UserProfileRow = {
   email: string;
   status: string;
 };
-
-const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
 
 export async function GET() {
   try {
