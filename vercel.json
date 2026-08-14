@@ -8,6 +8,6 @@
       "path": "/api/cron/generate-carousels",
       "schedule": "0 3 * * 3,6"
     },
-    { "path": "/api/cron/first-engagement", "schedule": "0 * * * *" }
+    { "path": "/api/cron/first-engagement", "schedule": "0 6 * * *" }
   ]
 }
