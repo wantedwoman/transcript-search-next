@@ -181,11 +181,34 @@ export async function cancelReminder(
 export async function getDueReminders(): Promise<UserReminder[]> {
   const supabase = createServiceRoleClient();
 
+  // Only fire reminders for members whose active gate is open. The gate's
+  // source of truth is user_profiles.status ('active' | 'revoked'), set by
+  // lib/auth/auto-provision.ts (revokeUser/restoreUser). A cancelled /
+  // deactivated member's due reminder must never fire, so narrow the
+  // selection to members currently marked 'active'.
+  const { data: activeProfiles, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .eq('status', 'active');
+
+  if (profileError) {
+    logger.error('Failed to fetch active member profiles', profileError);
+    return [];
+  }
+
+  const activeUserIds = (activeProfiles || []).map((p) => p.user_id);
+
+  // No active members — nothing can be due.
+  if (activeUserIds.length === 0) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('user_reminders')
     .select('*')
     .eq('is_sent', false)
-    .lte('remind_at', new Date().toISOString());
+    .lte('remind_at', new Date().toISOString())
+    .in('user_id', activeUserIds);
 
   if (error) {
     logger.error('Failed to fetch due reminders', error);
