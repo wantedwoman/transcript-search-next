@@ -3,7 +3,7 @@ import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getNextNudgeStage, sendFirstNudge } from '@/lib/first-engagement/sequence';
 import { logger } from '@/lib/utils/logger';
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization') || '';
     const cronSecret =
