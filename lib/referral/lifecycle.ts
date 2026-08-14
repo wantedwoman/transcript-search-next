@@ -266,16 +266,22 @@ export async function releaseEligibleReferrals(
     const credit = toCreditAmount(row.credit_amount);
     const releasedAt = new Date().toISOString();
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('referrals')
       .update({ status: 'released', released_at: releasedAt })
       .eq('id', row.id)
-      .eq('status', 'pending'); // concurrency guard — no double release
+      .eq('status', 'pending') // concurrency guard — no double release
+      .select('id');
 
     if (error) {
       logger.error(`[referral] release update failed for ${row.id}`, error);
       continue;
     }
+
+    // The status-guarded UPDATE matched 0 rows: a concurrent sweep already
+    // released this referral (lost the race). Skip the ledger write so exactly
+    // one winner credits — no double credit.
+    if (!updatedRows || updatedRows.length === 0) continue;
 
     await writeLedgerEntry(supabase, {
       referralId: row.id,
@@ -332,16 +338,21 @@ export async function applyPayouts(
 
     for (const r of referralRows) {
       const credit = toCreditAmount(r.credit_amount);
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('referrals')
         .update({ status: 'paid', paid_at: paidAt })
         .eq('id', r.id)
-        .eq('status', 'released');
+        .eq('status', 'released')
+        .select('id');
 
       if (error) {
         logger.error(`[referral] payout update failed for ${r.id}`, error);
         continue;
       }
+
+      // The status-guarded UPDATE matched 0 rows: a concurrent payout sweep
+      // already paid this referral. Skip the ledger write — no double credit.
+      if (!updatedRows || updatedRows.length === 0) continue;
 
       await writeLedgerEntry(supabase, {
         referralId: r.id,
