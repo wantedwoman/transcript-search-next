@@ -1,12 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
 import { logger } from '@/lib/utils/logger';
-import { createReminder, listActiveReminders, cancelReminder } from '@/lib/reminders/reminder-engine';
+import {
+  createReminder,
+  listActiveReminders,
+  cancelReminder,
+  MESSAGE_STYLES,
+  REMINDER_CADENCES,
+  REMINDER_CADENCE_DAYS,
+  type MessageStyle,
+  type ReminderCadence,
+} from '@/lib/reminders/reminder-engine';
 
 /**
  * POST /api/suzy/reminders
  * Create a new reminder. Max 1 active reminder per user.
- * Body: { topic: string, remindAtDays?: number (default 7) }
+ * Body: {
+ *   topic: string,
+ *   cadence?: 'daily' | 'weekly' | 'monthly',   // maps to a remindAt Date
+ *   messageStyle?: 'gentle' | 'direct' | 'hype', // persisted on the row
+ *   remindAtDays?: number (1-30, legacy, default 7)
+ * }
  */
 export async function POST(request: Request) {
   try {
@@ -16,7 +30,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { topic, remindAtDays } = body;
+    const { topic, cadence, messageStyle, remindAtDays } = body;
 
     if (!topic || typeof topic !== 'string' || !topic.trim()) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
@@ -26,15 +40,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Topic must be 200 characters or less' }, { status: 400 });
     }
 
-    // Default: remind in 7 days
-    const days = typeof remindAtDays === 'number' && remindAtDays >= 1 && remindAtDays <= 30
-      ? remindAtDays
-      : 7;
+    // Validate message style against the allowed set (mirrors the DB check
+    // constraint). Defaults to 'gentle' for older clients that omit it.
+    const style: MessageStyle =
+      typeof messageStyle === 'string' && (MESSAGE_STYLES as string[]).includes(messageStyle)
+        ? (messageStyle as MessageStyle)
+        : 'gentle';
+
+    // Cadence maps to a remindAt Date (daily/weekly/monthly). Falls back to
+    // the legacy numeric remindAtDays field, then to 7 days.
+    let days: number | null = null;
+    if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
+      days = REMINDER_CADENCE_DAYS[cadence as ReminderCadence];
+    } else if (typeof remindAtDays === 'number' && remindAtDays >= 1 && remindAtDays <= 30) {
+      days = remindAtDays;
+    }
+    const finalDays = days ?? 7;
 
     const remindAt = new Date();
-    remindAt.setDate(remindAt.getDate() + days);
+    remindAt.setDate(remindAt.getDate() + finalDays);
 
-    const result = await createReminder(user.id, topic.trim(), remindAt);
+    const result = await createReminder(user.id, topic.trim(), remindAt, style);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 409 });

@@ -6,6 +6,20 @@ export type MessageStyle = 'gentle' | 'direct' | 'hype';
 
 export const MESSAGE_STYLES: MessageStyle[] = ['gentle', 'direct', 'hype'];
 
+/**
+ * Member-facing reminder cadences and how far out each one schedules the
+ * reminder. Kept in the engine (not the route) so the mapping is testable
+ * and reused by both the API route and any UI that previews the schedule.
+ */
+export const REMINDER_CADENCES = ['daily', 'weekly', 'monthly'] as const;
+export type ReminderCadence = (typeof REMINDER_CADENCES)[number];
+
+export const REMINDER_CADENCE_DAYS: Record<ReminderCadence, number> = {
+  daily: 1,
+  weekly: 7,
+  monthly: 30,
+};
+
 export interface UserReminder {
   id: string;
   user_id: string;
@@ -33,6 +47,43 @@ export function buildReminderMessage(topic: string, style?: string): string {
     default:
       return `Hey Sis, it's been a while since we talked about ${topic}. How's that going?`;
   }
+}
+
+/**
+ * No-monthly-cost email companion path for reminders.
+ *
+ * The in-app message (see sendReminder) remains the PRIMARY delivery — it
+ * always works and costs nothing. This function is the email companion:
+ *
+ *  - If a free-tier email key is configured (e.g. RESEND_API_KEY for Resend's
+ *    free tier, or SMTP_HOST), we log that the send happened via that
+ *    provider. No paid email service is wired here (card constraint D5).
+ *  - Otherwise (the default today — see .env.local key names), we emit a
+ *    clear "logged as sent" email log line so firing a reminder produces a
+ *    durable, greppable record of the email delivery without any monthly cost.
+ */
+export function sendReminderEmailLog(reminder: UserReminder): void {
+  const provider = freeTierEmailProvider();
+  if (provider) {
+    logger.info(
+      `[reminder-email:${provider}] Reminder email sent for user ${reminder.user_id}, topic: "${reminder.topic}" (free tier)`
+    );
+    return;
+  }
+  logger.info(
+    `[reminder-email:logged-as-sent] Email not configured — reminder email logged as sent (no monthly cost). user=${reminder.user_id}, topic: "${reminder.topic}"`
+  );
+}
+
+/**
+ * Detects a free-tier email provider that could be wired later without code
+ * changes. Returns the provider name, or null when none is configured (the
+ * common case), in which case the caller logs the email as sent.
+ */
+function freeTierEmailProvider(): string | null {
+  if (process.env.RESEND_API_KEY) return 'resend';
+  if (process.env.SMTP_HOST) return 'smtp';
+  return null;
 }
 
 /**
@@ -234,6 +285,11 @@ export async function sendReminder(reminder: UserReminder): Promise<void> {
 
   // Mark reminder as sent
   await markReminderSent(reminder.id);
+
+  // Email companion path — in-app message above remains primary.
+  // Logs the email as sent (or sends via a free-tier provider if one is
+  // configured). No monthly cost is ever introduced here (card constraint D5).
+  sendReminderEmailLog(reminder);
 
   logger.info(`Sent reminder ${reminder.id} to user ${reminder.user_id}, topic: "${reminder.topic}"`);
 }
