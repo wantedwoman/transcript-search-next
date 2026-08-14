@@ -107,9 +107,14 @@ export async function sendCarouselToTelegram(
   chatId: string = TELEGRAM_CHAT_ID
 ): Promise<TelegramSendResult> {
   if (!TELEGRAM_BOT_TOKEN) {
-    logger.info('Telegram carousel delivery skipped: TELEGRAM_BOT_TOKEN not configured');
+    logger.warn(
+      `Telegram carousel delivery skipped: TELEGRAM_BOT_TOKEN not configured (chatId="${chatId}", slides=${pngBuffers.length})`
+    );
     return { ok: false, reason: 'no-token' };
   }
+  logger.info(
+    `Telegram carousel delivery starting: chatId="${chatId}", slides=${pngBuffers.length}, tokenSet=true, hasBlob=${typeof Blob !== 'undefined'}, hasFormData=${typeof FormData !== 'undefined'}`
+  );
 
   const slideCount = pngBuffers.length;
   const photoMessageIds: number[] = [];
