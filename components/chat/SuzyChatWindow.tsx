@@ -375,16 +375,16 @@ export default function SuzyChatWindow() {
               >
                 <div className={`flex flex-col gap-2 ${message.isUser ? 'items-end text-right' : ''}`}>
                   <div
-                    className={`message-shadow glass-panel-solid px-6 py-5 rounded-lg font-body text-chat ${
+                    className={`message-shadow px-6 py-5 rounded-lg font-body text-chat ${
                       message.isUser
                         ? 'bg-primary text-on-primary rounded-tr-none border border-primary/20'
-                        : 'bg-surface-container-high/60 text-on-surface rounded-tl-none border-tl-4 border-tertiary'
+                        : 'glass-panel-solid bg-surface-container-high/60 text-on-surface rounded-tl-none border-tl-4 border-tertiary'
                     }`}
                   >
                     <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 px-2">
-                    <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/40">
+                    <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/70">
                       {message.isUser ? 'You' : 'Coach Cass AI'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {!message.isUser && message.mood && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[0.5625rem] bg-white/10 border border-white/10">
@@ -456,7 +456,7 @@ export default function SuzyChatWindow() {
             <input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-input py-4 min-h-touch-target min-w-0 focus:outline-none"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/70 font-body text-input py-4 min-h-touch-target min-w-0 focus:outline-none"
               placeholder="Type your message..."
               type="text"
               disabled={loading}
