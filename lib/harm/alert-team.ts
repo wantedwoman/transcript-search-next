@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger';
  * team-notification path.
  */
 
-export type HarmSeverity = 'high' | 'critical';
+export type HarmSeverity = 'critical';
 
 /**
  * Patterns indicating the member is at immediate risk of self-harm / suicide.
@@ -102,15 +102,12 @@ function findFirstHarmMatchIndex(text: string): number {
 
 /**
  * Severity logic (CC-09 spec):
- * - self-harm / suicide match → 'critical'
- * - violence toward others match → 'critical'
- * - any other harm-language match → 'high'
+ * Every pattern in HARM_PATTERNS is imminent-risk (self-harm / suicide /
+ * violence toward others), so every harm alert classifies as 'critical'.
+ * There is no non-imminent 'high' tier in the current detection set.
  */
-export function classifyHarmSeverity(query: string): HarmSeverity {
-  const isCritical =
-    CRITICAL_SELF_HARM_PATTERNS.some((pattern) => pattern.test(query)) ||
-    CRITICAL_VIOLENCE_PATTERNS.some((pattern) => pattern.test(query));
-  return isCritical ? 'critical' : 'high';
+export function classifyHarmSeverity(_query: string): HarmSeverity {
+  return 'critical';
 }
 
 /**

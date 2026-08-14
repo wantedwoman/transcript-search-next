@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS harm_alerts (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   message_snippet TEXT NOT NULL,
   matched_pattern TEXT NOT NULL,
-  severity TEXT NOT NULL CHECK (severity IN ('high', 'critical')),
+  severity TEXT NOT NULL CHECK (severity = 'critical'),
   acknowledged BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
