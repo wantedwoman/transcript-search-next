@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
-
-const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 
 /**
  * Marks a harm alert as acknowledged (acknowledged = true).
