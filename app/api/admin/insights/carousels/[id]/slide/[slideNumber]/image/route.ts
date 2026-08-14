@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
 import { renderSlideToPNG, type CarouselSlide } from '@/lib/insights/carousel-image';
+import {
+  cacheSlideImage,
+  getCachedSlideImage,
+  slideImageCacheKey,
+} from '@/lib/insights/slide-image-cache';
 
 // Renders a single carousel slide (1080x1080 PNG) on demand from the real,
 // already-generated slide content stored in `carousel_content.slides`.
@@ -10,6 +15,28 @@ import { renderSlideToPNG, type CarouselSlide } from '@/lib/insights/carousel-im
 export const runtime = 'nodejs';
 
 const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
+
+/**
+ * Render a slide to PNG, serving from the server-side cache when the same
+ * carousel id + slide number + slide content was already rendered. The key is
+ * content-derived, so any change to the carousel's slides automatically
+ * invalidates the cached image.
+ */
+async function getSlideImagePNG(
+  id: string,
+  targetSlideNumber: number,
+  slideIndex: number,
+  slide: CarouselSlide
+): Promise<Buffer> {
+  const key = slideImageCacheKey(id, targetSlideNumber, slideIndex, slide);
+  const cached = getCachedSlideImage(key);
+  if (cached) {
+    return cached;
+  }
+  const png = await renderSlideToPNG(slide, slideIndex);
+  cacheSlideImage(key, png);
+  return png;
+}
 
 export async function GET(
   request: NextRequest,
@@ -51,7 +78,7 @@ export async function GET(
       return NextResponse.json({ error: 'Slide not found' }, { status: 404 });
     }
 
-    const png = await renderSlideToPNG(slide, resolvedIndex);
+    const png = await getSlideImagePNG(id, targetSlideNumber, resolvedIndex, slide);
 
     return new NextResponse(new Uint8Array(png), {
       status: 200,
