@@ -38,7 +38,27 @@ const CRITICAL_SELF_HARM_PATTERNS = [
 /**
  * Patterns indicating intent to harm others / violence.
  * Matching any of these → severity 'critical'.
+ *
+ * CC-09 cycle-3 F-5: the old set only matched generic pronouns
+ * (`him|her|them|someone`), so "i want to hurt my husband" / "i want to kill my
+ * boss" slipped through. Named-target patterns below pair an explicit intent
+ * verb (`hurt`/`kill`/`make … suffer`) with an explicit relationship/identity
+ * noun, so a named target fires while the negation guard still suppresses
+ * "he would never hurt our kids". The noun list stays explicit on purpose — a
+ * bare `hurt my <anything>` would FP on "i want to hurt my pride".
  */
+const VIOLENCE_TARGET_NOUNS =
+  '(husband|wife|spouse|partner|boyfriend|girlfriend|' +
+  'son|daughter|child|children|kid|kids|baby|' +
+  'mother|father|mom|dad|parent|parents|brother|sister|family|' +
+  'coworker|co-?worker|boss|manager|colleague|neighbor|' +
+  'ex[- ]?(boyfriend|girlfriend|husband|wife|partner))';
+
+/** intent-verb + optional possessive + explicit target noun, word-bounded. */
+function namedTargetViolencePattern(intent: 'hurt' | 'kill'): RegExp {
+  return new RegExp(`${intent} (my |our )?${VIOLENCE_TARGET_NOUNS}\\b`, 'i');
+}
+
 const CRITICAL_VIOLENCE_PATTERNS = [
   /hurt (him|her|them|someone)/i,
   /kill (him|her|them|someone)/i,
@@ -47,6 +67,11 @@ const CRITICAL_VIOLENCE_PATTERNS = [
   /violent revenge/i,
   /plan to hurt/i,
   /plan to kill/i,
+  // Named-target violence (CC-09 cycle-3 F-5).
+  namedTargetViolencePattern('hurt'),
+  namedTargetViolencePattern('kill'),
+  new RegExp(`make (my |our )?${VIOLENCE_TARGET_NOUNS} suffer`, 'i'),
+  new RegExp(`how do i (hurt|kill) (my |our )?${VIOLENCE_TARGET_NOUNS}\\b`, 'i'),
 ];
 
 /**
@@ -356,8 +381,12 @@ export async function sendHarmAlertEmail(alert: HarmAlertNotification): Promise<
  *  2. Persist a harm_alerts row via the service-role client.
  *  3. Email the team via ADMIN_EMAILS (see sendHarmAlertEmail).
  *
- * Never throws — a harm alert must not break the chat response. Failures are
- * logged so the safety reply still reaches the member.
+ * The member's crisis reply NEVER waits on the team email: the send is
+ * fire-and-forget (not awaited) so a slow/hanging email provider cannot delay
+ * the SB 243 reply. sendHarmAlertEmail is itself timeout-bounded
+ * (AbortSignal.timeout(5000)) and never throws; the .catch below is a
+ * defensive guard only. Never throws — a harm alert must not break the chat
+ * response. Failures are logged so the safety reply still reaches the member.
  */
 export async function handleHarmAlert(
   userId: string,
@@ -401,19 +430,20 @@ export async function handleHarmAlert(
     logger.warn('No authenticated user — skipped harm_alerts write');
   }
 
-  // Team notification — timeout-bounded and non-throwing; see sendHarmAlertEmail.
-  try {
-    await sendHarmAlertEmail({
-      memberEmail: userEmail || 'unknown@member',
-      alertId,
-      timestamp,
-      messageSnippet,
-      matchedPattern,
-      severity: resolvedSeverity,
-    });
-  } catch (err) {
+  // Team notification — FIRE-AND-FORGET (CC-09 cycle-3 F-4): the email must not
+  // block the member's crisis reply. Not awaited. sendHarmAlertEmail keeps its
+  // AbortSignal.timeout(5000) + try/catch + never-throw guarantees internally;
+  // the .catch here is only a defensive guard against an unexpected rejection.
+  sendHarmAlertEmail({
+    memberEmail: userEmail || 'unknown@member',
+    alertId,
+    timestamp,
+    messageSnippet,
+    matchedPattern,
+    severity: resolvedSeverity,
+  }).catch((err) => {
     logger.error('sendHarmAlertEmail failed', err);
-  }
+  });
 
   return { reply, alertId };
 }
