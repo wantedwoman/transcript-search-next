@@ -13,6 +13,7 @@ import DraftComposer from './DraftComposer';
 import DateAuditModal from './DateAuditModal';
 import PhotoFeedbackModal from './PhotoFeedbackModal';
 import CourseSuggestion from './CourseSuggestion';
+import DisclaimerBanner from './DisclaimerBanner';
 import { UserPattern } from '@/lib/pattern-detection/types';
 
 interface ChatMessage {
@@ -352,6 +353,9 @@ export default function SuzyChatWindow() {
           </div>
         </>
       )}
+
+      {/* Persistent Disclaimer Banner */}
+      <DisclaimerBanner />
 
       {/* Main Content Canvas */}
       <main className="flex-1 pt-8 pb-48 px-6 md:px-12 lg:px-24 max-w-5xl mx-auto w-full space-y-12 relative z-0">
