@@ -8,7 +8,14 @@
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import path from 'path';
 import { createElement } from 'react';
-import { ImageResponse } from '@vercel/og';
+// Import the standalone @vercel/og Node build DIRECTLY (not via `@vercel/og`
+// package-resolution or `next/og`): Next 16's Turbopack rewrites bare
+// `@vercel/og` imports to `next/og`, whose serverless build loads
+// `next/dist/compiled/@vercel/og/index.node.js` — a file Next 16 does not
+// ship to lambdas ("Cannot find module ..."). Pointing at the package's own
+// dist/index.node.js (kept external via next.config serverExternalPackages)
+// bypasses the broken rewrite entirely.
+import { ImageResponse } from '@vercel/og/dist/index.node.js';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
