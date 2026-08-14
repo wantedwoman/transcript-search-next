@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSimilaritySearch } from '../../../lib/search/similarity-search';
 import { getOpenRouterAnswerGenerator } from '../../../lib/openrouter/answer-generation';
 import { logger } from '../../../lib/utils/logger';
+import { isHarmRiskQuery } from '@/lib/harm/alert-team';
 
 export const maxDuration = 30;
 
@@ -25,34 +26,11 @@ const SYSTEM_EXTRACTION_PATTERNS = [
   /tokens?/i,
 ];
 
-const HARM_PATTERNS = [
-  /kill myself/i,
-  /want to die/i,
-  /end my life/i,
-  /hurt myself/i,
-  /self[- ]harm/i,
-  /suicid(e|al)/i,
-  /overdose/i,
-  /cut myself/i,
-  /how do i hurt myself/i,
-  /how do i kill myself/i,
-  /hurt (him|her|them|someone)/i,
-  /kill (him|her|them|someone)/i,
-  /how do i hurt (him|her|them|someone)/i,
-  /how do i kill (him|her|them|someone)/i,
-  /make (him|her|them|someone) suffer/i,
-  /violent revenge/i,
-  /plan to hurt/i,
-  /plan to kill/i,
-];
-
 function isSystemExtractionQuery(query: string): boolean {
   return SYSTEM_EXTRACTION_PATTERNS.some((pattern) => pattern.test(query));
 }
-
-function isHarmRiskQuery(query: string): boolean {
-  return HARM_PATTERNS.some((pattern) => pattern.test(query));
-}
+// isHarmRiskQuery is imported from @/lib/harm/alert-team (single source of truth,
+// negation-aware + progressive verb forms). Reply content stays local below.
 
 function protectedReply() {
   return "I focus on giving you the best guidance I can. I don't get into how I'm built, but I've got you.";
