@@ -20,6 +20,23 @@ import type { CarouselSlide } from './carousel-image';
 const PNG_CACHE_MAX = 200;
 const pngCache = new Map<string, Buffer>();
 
+/**
+ * Number of times the slide image route actually rendered a slide from scratch
+ * (i.e. cache misses). Exposed for the CC-06 prove-fixed check: a second GET
+ * for the same slide must not bump this counter.
+ */
+let slideRenderCount = 0;
+
+/** Record that a slide was rendered from scratch rather than served from cache. */
+export function incrementSlideRenderCount(): void {
+  slideRenderCount += 1;
+}
+
+/** Total number of cache-miss renders since the process started. */
+export function getSlideRenderCount(): number {
+  return slideRenderCount;
+}
+
 /** Fast non-cryptographic hash (FNV-1a) of the slide's text content. */
 function fnv1a(str: string): string {
   let hash = 0x811c9dc5;

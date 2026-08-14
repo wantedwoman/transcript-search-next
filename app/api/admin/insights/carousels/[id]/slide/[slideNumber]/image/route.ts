@@ -5,6 +5,7 @@ import { renderSlideToPNG, type CarouselSlide } from '@/lib/insights/carousel-im
 import {
   cacheSlideImage,
   getCachedSlideImage,
+  incrementSlideRenderCount,
   slideImageCacheKey,
 } from '@/lib/insights/slide-image-cache';
 
@@ -20,9 +21,10 @@ const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
  * Render a slide to PNG, serving from the server-side cache when the same
  * carousel id + slide number + slide content was already rendered. The key is
  * content-derived, so any change to the carousel's slides automatically
- * invalidates the cached image.
+ * invalidates the cached image. Exported so the CC-06 prove-fixed check can
+ * exercise the exact code path the route uses.
  */
-async function getSlideImagePNG(
+export async function getSlideImagePNG(
   id: string,
   targetSlideNumber: number,
   slideIndex: number,
@@ -35,6 +37,7 @@ async function getSlideImagePNG(
   }
   const png = await renderSlideToPNG(slide, slideIndex);
   cacheSlideImage(key, png);
+  incrementSlideRenderCount();
   return png;
 }
 
