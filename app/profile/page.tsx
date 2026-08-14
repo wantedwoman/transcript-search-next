@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import ReminderSetup from '../../components/ReminderSetup';
@@ -50,6 +50,16 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  // Tracks the auto-dismiss timer for success messages so a new save always
+  // supersedes a pending one (and errors are never silently cleared).
+  const messageTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearMessageTimeout = useCallback(() => {
+    if (messageTimeout.current) {
+      clearTimeout(messageTimeout.current);
+      messageTimeout.current = null;
+    }
+  }, []);
 
   const [onboarding, setOnboarding] = useState<OnboardingData>({
     age: '',
@@ -142,18 +152,26 @@ export default function ProfilePage() {
     loadProfile();
   }, [loadProfile]);
 
+  useEffect(() => {
+    return () => clearMessageTimeout();
+  }, [clearMessageTimeout]);
+
   const handleSave = async () => {
     setSaving(true);
     setSuccessMessage('');
     setErrorMessage('');
+    clearMessageTimeout();
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        throw new Error('Not signed in');
+      }
 
+      const ageNum = parseInt(onboarding.age, 10);
       const payload = {
         user_id: user.id,
-        age: onboarding.age ? parseInt(onboarding.age) : null,
+        age: onboarding.age && !Number.isNaN(ageNum) ? ageNum : null,
         profession: onboarding.profession || null,
         income_range: onboarding.income_range || null,
         relationship_status: onboarding.relationship_status || null,
@@ -168,20 +186,26 @@ export default function ProfilePage() {
       if (error) throw error;
 
       setSuccessMessage('Profile saved!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      messageTimeout.current = setTimeout(() => setSuccessMessage(''), 4000);
     } catch (err) {
       console.error('Failed to save profile:', err);
-      setErrorMessage('Failed to save. Please try again.');
-      setTimeout(() => setErrorMessage(''), 3000);
+      // Keep the error visible until the next save attempt so a failure is
+      // never a silent no-op.
+      setErrorMessage('That didn’t save. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleGenerateReferralCode = async () => {
+    clearMessageTimeout();
+    setSuccessMessage('');
+    setErrorMessage('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        throw new Error('Not signed in');
+      }
 
       // Generate a short, readable code from user id + random
       const code = user.id.substring(0, 4) + Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -196,8 +220,8 @@ export default function ProfilePage() {
       await loadProfile();
     } catch (err) {
       console.error('Failed to generate referral code:', err);
-      setErrorMessage('Failed to generate referral code.');
-      setTimeout(() => setErrorMessage(''), 3000);
+      // Keep the error visible until the next attempt so it is never silent.
+      setErrorMessage('That didn’t work. Please try again.');
     }
   };
 
