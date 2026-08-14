@@ -74,12 +74,13 @@ const TEXT_BUDGET = TEXT_COLUMN_HEIGHT - 112;
 const LINE_BOX_FACTOR = 1.06;
 const MAX_FIT_ITERATIONS = 6;
 
-// Slide type configurations
-const SLIDE_CONFIGS: Record<string, { bg: string; accent: string; textColor: string }> = {
-  hook: { bg: '#4D1D57', accent: '#FFD700', textColor: '#FFFFFF' },
-  insight: { bg: '#171117', accent: '#FF7095', textColor: '#FFFFFF' },
-  tip: { bg: '#1A0A1F', accent: '#FF7095', textColor: '#FFFFFF' },
-  cta: { bg: '#4D1D57', accent: '#FFD700', textColor: '#FFFFFF' },
+// Slide type configurations — white-background palette per Coach Cass feedback.
+// Base: clean white so the pink pops and the carousel feels premium on IG feeds.
+const SLIDE_CONFIGS: Record<string, { bg: string; accent: string; textColor: string; subtextColor: string }> = {
+  hook: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#4D1D57', subtextColor: '#FF7095' },
+  insight: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#1A0A1F', subtextColor: '#4D1D57' },
+  tip: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#1A0A1F', subtextColor: '#4D1D57' },
+  cta: { bg: '#FFFFFF', accent: '#4D1D57', textColor: '#1A0A1F', subtextColor: '#FF7095' },
 };
 
 function slugify(title: string): string {
@@ -414,6 +415,41 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         overflow: 'hidden',
       },
     },
+    // Top-left branded header: "WANTED Woman" in small caps accent
+    createElement(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          top: 48,
+          left: 60,
+          fontSize: 20,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: config.accent,
+          opacity: 0.85,
+        },
+      },
+      'WANTED Woman'
+    ),
+    // Subtle bottom-right badge / watermark area
+    createElement(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          bottom: 40,
+          right: 60,
+          fontSize: 18,
+          fontWeight: 700,
+          opacity: 0.3,
+          color: config.subtextColor,
+        },
+      },
+      `${slideNumber}/5`
+    ),
+    // Decorative accent circle — top right, soft pink
     createElement('div', {
       style: {
         display: 'flex',
@@ -421,11 +457,12 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         width: 400,
         height: 400,
         borderRadius: 999,
-        background: `${config.accent}15`,
-        top: -100,
-        right: -100,
+        background: `${config.accent}10`,
+        top: -140,
+        right: -140,
       },
     }),
+    // Decorative accent circle — bottom left, even softer
     createElement('div', {
       style: {
         display: 'flex',
@@ -433,11 +470,12 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         width: 300,
         height: 300,
         borderRadius: 999,
-        background: `${config.accent}10`,
+        background: `${config.accent}08`,
         bottom: -80,
         left: -80,
       },
     }),
+    // Slide type badge — pill, accent border/bg
     createElement(
       'div',
       {
@@ -445,8 +483,8 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          background: `${config.accent}20`,
-          border: `1px solid ${config.accent}40`,
+          background: `${config.accent}15`,
+          border: `1.5px solid ${config.accent}50`,
           borderRadius: 100,
           padding: '8px 20px',
           fontSize: 14,
@@ -459,6 +497,7 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
       },
       slide.type.toUpperCase()
     ),
+    // Headline
     createElement(
       'div',
       {
@@ -476,10 +515,12 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           WebkitLineClamp: fit.headClamp,
+          color: config.textColor,
         },
       },
       slide.headline
     ),
+    // Body
     createElement(
       'div',
       {
@@ -489,49 +530,35 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           fontWeight: 400,
           lineHeight: BODY_LINE_HEIGHT,
           textAlign: 'center',
-          opacity: 0.85,
+          opacity: 0.8,
           maxWidth: BODY_WIDTH,
           wordBreak: 'break-word',
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           WebkitLineClamp: fit.bodyClamp,
+          color: config.textColor,
         },
       },
       slide.body
     ),
+    // Bottom-left CTA / brand line (on Cta slide this becomes stronger)
     createElement(
       'div',
       {
         style: {
-          display: 'flex',
-          position: 'absolute',
-          bottom: 40,
-          right: 60,
-          fontSize: 18,
-          fontWeight: 700,
-          opacity: 0.3,
-        },
-      },
-      `${slideNumber}/5`
-    ),
-    createElement(
-      'div',
-      {
-        style: {
-          display: 'flex',
           position: 'absolute',
           bottom: 40,
           left: 60,
-          fontSize: 16,
-          fontWeight: 700,
-          letterSpacing: '0.1em',
+          fontSize: slide.type === 'cta' ? 18 : 16,
+          fontWeight: slide.type === 'cta' ? 700 : 600,
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
           color: config.accent,
-          opacity: 0.6,
+          opacity: slide.type === 'cta' ? 1 : 0.6,
         },
       },
-      'WANTED Woman'
+      slide.type === 'cta' ? 'Link in bio' : 'coachcass.com'
     )
   );
 }
@@ -600,34 +627,58 @@ function generateSlideHTML(
       position: relative;
       overflow: hidden;
     }
+    /* Brand header top-left */
+    .brand-header {
+      position: absolute;
+      top: 48px;
+      left: 60px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: ${config.accent};
+      opacity: 0.85;
+    }
+    /* Slide number bottom-right */
+    .slide-number {
+      position: absolute;
+      bottom: 40px;
+      right: 60px;
+      font-size: 18px;
+      font-weight: 600;
+      opacity: 0.3;
+      color: ${config.subtextColor};
+    }
+    /* Decorative accent circles */
     .decorative-circle {
       position: absolute;
       width: 400px;
       height: 400px;
       border-radius: 50%;
-      background: ${config.accent}15;
-      top: -100px;
-      right: -100px;
+      background: ${config.accent}10;
+      top: -140px;
+      right: -140px;
     }
     .decorative-circle-2 {
       position: absolute;
       width: 300px;
       height: 300px;
       border-radius: 50%;
-      background: ${config.accent}10;
+      background: ${config.accent}08;
       bottom: -80px;
       left: -80px;
     }
+    /* Type badge */
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: ${config.accent}20;
-      border: 1px solid ${config.accent}40;
+      background: ${config.accent}15;
+      border: 1.5px solid ${config.accent}50;
       border-radius: 100px;
       padding: 8px 20px;
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: ${config.accent};
@@ -647,13 +698,14 @@ function generateSlideHTML(
       -webkit-line-clamp: ${fit.headClamp};
       overflow: hidden;
       text-overflow: ellipsis;
+      color: ${config.textColor};
     }
     .body-text {
       font-size: ${fit.bodySize}px;
       font-weight: 400;
       line-height: 1.6;
       text-align: center;
-      opacity: 0.85;
+      opacity: 0.8;
       max-width: 700px;
       word-break: break-word;
       display: -webkit-box;
@@ -661,36 +713,31 @@ function generateSlideHTML(
       -webkit-line-clamp: ${fit.bodyClamp};
       overflow: hidden;
       text-overflow: ellipsis;
+      color: ${config.textColor};
     }
-    .slide-number {
-      position: absolute;
-      bottom: 40px;
-      right: 60px;
-      font-size: 18px;
-      font-weight: 600;
-      opacity: 0.3;
-    }
-    .brand-mark {
+    /* Footer */
+    .footer {
       position: absolute;
       bottom: 40px;
       left: 60px;
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
+      font-size: ${slide.type === 'cta' ? 18 : 16}px;
+      font-weight: ${slide.type === 'cta' ? 700 : 600};
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: ${config.accent};
-      opacity: 0.6;
+      opacity: ${slide.type === 'cta' ? 1 : 0.6};
     }
   </style>
 </head>
 <body>
+  <div class="brand-header">WANTED Woman</div>
   <div class="decorative-circle"></div>
   <div class="decorative-circle-2"></div>
   <div class="badge">${typeLabels[slide.type] || ''} ${slide.type.toUpperCase()}</div>
   <div class="headline">${escapeHTML(slide.headline)}</div>
   <div class="body-text">${escapeHTML(slide.body)}</div>
   <div class="slide-number">${slideNumber}/5</div>
-  <div class="brand-mark">WANTED Woman</div>
+  <div class="footer">${slide.type === 'cta' ? 'Link in bio' : 'coachcass.com'}</div>
 </body>
 </html>`;
 }
