@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
 import { renderSlideToPNG, type CarouselSlide } from '@/lib/insights/carousel-image';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 import {
   cacheSlideImage,
   getCachedSlideImage,
@@ -14,8 +15,6 @@ import {
 // Node runtime — @vercel/og (satori + resvg) requires Node APIs (fs) to load
 // the bundled Manrope font files.
 export const runtime = 'nodejs';
-
-const ADMIN_EMAILS = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
 
 /**
  * Render a slide to PNG, serving from the server-side cache when the same
