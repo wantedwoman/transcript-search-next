@@ -255,28 +255,49 @@ export async function GET(request: Request) {
     }
 
     // Fresh member with zero conversations — fire the T0 welcome on first chat load.
-    // getWelcomeMessage creates the conversation + inserts the welcome as the
-    // first assistant message. Already-welcomed / existing users are untouched:
-    // this block only runs for members with no conversations yet.
+    // Gated to ACTIVE members only (CC-13 F-4): pending/revoked/non-active members
+    // must never receive the welcome or have a conversation auto-created. Middleware
+    // only blocks revoked + GHL-cancelled sessions, so the route re-checks the
+    // source-of-truth status before firing. On any lookup failure or non-active
+    // status, degrade to the current no-welcome behavior (empty conversation list)
+    // — never a 500.
     if (!conversations || conversations.length === 0) {
+      let isActiveMember = false;
       try {
-        const welcome = await getWelcomeMessage(user.id);
-        if (welcome.conversationId) {
-          conversations = [{
-            id: welcome.conversationId,
-            title: null,
-            created_at: new Date().toISOString(),
-          }];
-          latestConversation = conversations[0];
-          messages = [{
-            id: `welcome-${welcome.conversationId}`,
-            content: welcome.content,
-            isUser: false,
-            timestamp: new Date(),
-          }];
+        const { data: profile, error: profileError } = await createServiceRoleClient()
+          .from('user_profiles')
+          .select('status')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (profileError) {
+          logger.error('T0 welcome gate: user_profiles lookup failed', profileError);
+        } else if (profile && profile.status === 'active') {
+          isActiveMember = true;
         }
       } catch (err) {
-        logger.error('Failed to fire T0 welcome on first chat load', err);
+        logger.error('T0 welcome gate: user_profiles lookup threw', err);
+      }
+
+      if (isActiveMember) {
+        try {
+          const welcome = await getWelcomeMessage(user.id);
+          if (welcome.conversationId) {
+            conversations = [{
+              id: welcome.conversationId,
+              title: null,
+              created_at: new Date().toISOString(),
+            }];
+            latestConversation = conversations[0];
+            messages = [{
+              id: `welcome-${welcome.conversationId}`,
+              content: welcome.content,
+              isUser: false,
+              timestamp: new Date(),
+            }];
+          }
+        } catch (err) {
+          logger.error('Failed to fire T0 welcome on first chat load', err);
+        }
       }
     }
 
