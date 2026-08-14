@@ -60,6 +60,46 @@ export function findMatchedHarmPattern(query: string): string | null {
   return null;
 }
 
+/** Cap for the stored snippet — bounded so the row never stores the full message / extra PII. */
+const SNIPPET_MAX_LENGTH = 200;
+
+/** Chars of leading context to keep before the matched harm phrase so the snippet reads naturally. */
+const SNIPPET_CONTEXT_BEFORE = 80;
+
+/**
+ * Build a capped message snippet that is guaranteed to contain the matched harm
+ * language.
+ *
+ * The original implementation (`query.trim().slice(-200)`) kept only the LAST
+ * 200 chars, so a message whose harm phrase sat near the START lost the exact
+ * harm language from the alert row and the team email (CC-09 data-integrity
+ * finding). We now anchor the window at the first harm-pattern match and keep a
+ * little leading context, so the exact phrase is preserved while the snippet is
+ * still capped at 200 chars.
+ */
+export function buildMessageSnippet(query: string): string {
+  const text = query.trim();
+  const matchIndex = findFirstHarmMatchIndex(text);
+  if (matchIndex === -1) {
+    // No harm pattern present (defensive) — keep the first 200 chars.
+    return text.slice(0, SNIPPET_MAX_LENGTH);
+  }
+  const start = Math.max(0, matchIndex - SNIPPET_CONTEXT_BEFORE);
+  return text.slice(start, start + SNIPPET_MAX_LENGTH);
+}
+
+/** Index of the first harm-pattern match in `text`, or -1 when none match. */
+function findFirstHarmMatchIndex(text: string): number {
+  let firstIndex = -1;
+  for (const pattern of HARM_PATTERNS) {
+    const match = pattern.exec(text);
+    if (match && match.index >= 0 && (firstIndex === -1 || match.index < firstIndex)) {
+      firstIndex = match.index;
+    }
+  }
+  return firstIndex;
+}
+
 /**
  * Severity logic (CC-09 spec):
  * - self-harm / suicide match → 'critical'
@@ -155,7 +195,8 @@ export async function handleHarmAlert(
 ): Promise<{ reply: string; alertId?: string }> {
   const reply = harmSafetyReply();
   const resolvedSeverity: HarmSeverity = severity ?? classifyHarmSeverity(query);
-  const messageSnippet = query.trim().slice(-200);
+  // Keep the matched harm phrase in the snippet (CC-09 data-integrity), capped at 200 chars.
+  const messageSnippet = buildMessageSnippet(query);
   const timestamp = new Date().toISOString();
 
   let alertId: string | undefined;
