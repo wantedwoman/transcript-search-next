@@ -58,41 +58,45 @@ class MockStore {
 }
 
 class MockBuilder {
-  private rows: Row[];
+  // WHERE predicates are recorded at build time and re-evaluated against the
+  // CURRENT store rows at execution time — faithful to PostgREST, where an
+  // UPDATE's WHERE (e.g. `status='pending'`) is applied atomically when the
+  // statement runs. This is what makes the F3 concurrency race observable: a
+  // racing sweep whose status-guarded claim lost the race matches 0 rows and
+  // receives `{ data: [], error: null }`.
+  private predicates: Array<(r: Row) => boolean> = [];
   private pendingInsert: Row[] | null = null;
   private pendingUpdate: Row | null = null;
   private selectedCols: string | null = null;
   private limitN: number | null = null;
   private orderBy: { col: string; desc: boolean } | null = null;
 
-  constructor(private store: MockStore, private tableName: string) {
-    this.rows = store.tables[tableName] ?? [];
-  }
+  constructor(private store: MockStore, private tableName: string) {}
 
-  eq(col: string, val: any) { this.rows = this.rows.filter((r) => r[col] === val); return this; }
-  neq(col: string, val: any) { this.rows = this.rows.filter((r) => r[col] !== val); return this; }
+  eq(col: string, val: any) { this.predicates.push((r) => r[col] === val); return this; }
+  neq(col: string, val: any) { this.predicates.push((r) => r[col] !== val); return this; }
   not(col: string, op: string, val: any) {
     if (op === 'is' && val === null) {
-      this.rows = this.rows.filter((r) => r[col] !== null && r[col] !== undefined);
+      this.predicates.push((r) => r[col] !== null && r[col] !== undefined);
     } else {
-      this.rows = this.rows.filter((r) => r[col] !== val);
+      this.predicates.push((r) => r[col] !== val);
     }
     return this;
   }
   lt(col: string, val: any) {
-    this.rows = this.rows.filter((r) => new Date(r[col]).getTime() < new Date(val).getTime());
+    this.predicates.push((r) => new Date(r[col]).getTime() < new Date(val).getTime());
     return this;
   }
   lte(col: string, val: any) {
-    this.rows = this.rows.filter((r) => new Date(r[col]).getTime() <= new Date(val).getTime());
+    this.predicates.push((r) => new Date(r[col]).getTime() <= new Date(val).getTime());
     return this;
   }
   gt(col: string, val: any) {
-    this.rows = this.rows.filter((r) => new Date(r[col]).getTime() > new Date(val).getTime());
+    this.predicates.push((r) => new Date(r[col]).getTime() > new Date(val).getTime());
     return this;
   }
   gte(col: string, val: any) {
-    this.rows = this.rows.filter((r) => new Date(r[col]).getTime() >= new Date(val).getTime());
+    this.predicates.push((r) => new Date(r[col]).getTime() >= new Date(val).getTime());
     return this;
   }
   order(col: string, opts: { ascending?: boolean }) {
@@ -131,15 +135,15 @@ class MockBuilder {
       }
       return { data: this.project(created), error: null };
     }
+    // Evaluate the WHERE against the CURRENT store rows at execution time.
+    const matched = (this.store.tables[this.tableName] ?? []).filter((r) =>
+      this.predicates.every((p) => p(r))
+    );
     if (this.pendingUpdate) {
-      for (const r of this.rows) Object.assign(r, this.pendingUpdate);
-      return { data: this.project(this.rows), error: null };
+      for (const r of matched) Object.assign(r, this.pendingUpdate);
+      return { data: this.project(matched), error: null };
     }
-    return { data: this.project(this.compute()), error: null };
-  }
-
-  private compute(): Row[] {
-    let rows = [...this.rows];
+    let rows = matched;
     if (this.orderBy) {
       const { col, desc } = this.orderBy;
       rows.sort((a, b) => {
@@ -150,7 +154,7 @@ class MockBuilder {
       });
     }
     if (this.limitN !== null) rows = rows.slice(0, this.limitN);
-    return rows;
+    return { data: this.project(rows), error: null };
   }
 
   private project(rows: Row[]): Row[] {
@@ -427,6 +431,43 @@ async function verifyPayout() {
 }
 
 // ---------------------------------------------------------------------------
+// F3 — Concurrent release sweeps must not double-credit.
+//
+// Two sweeps race on the same released-eligible referral. Both select it as
+// `pending`, both run the status-guarded UPDATE (`status='pending'`); the loser
+// matches 0 rows. The ledger row MUST be skipped when 0 rows matched — otherwise
+// both winners write a credit → DOUBLE CREDIT.
+// ---------------------------------------------------------------------------
+async function verifyNoDoubleCreditOnConcurrentRelease() {
+  const { store, client } = freshClient(seedBase());
+
+  await recordAttribution(client, { code: A_CODE, referredEmail: B_EMAIL, referredUserId: 'uid-bella' });
+  const row = store.tables.referrals.find((r) => r.referred_email === B_EMAIL)!;
+  await confirmReferralPayment(client, B_EMAIL, { amount: 49, eventType: 'payment.success' });
+  const asOf = daysFrom(new Date(row.created_at), REFERRAL_HOLD_DAYS + 1);
+
+  // Two sweeps race on the SAME eligible referral — at most one may credit.
+  const [a, b] = await Promise.all([
+    releaseEligibleReferrals(client, asOf),
+    releaseEligibleReferrals(client, asOf),
+  ]);
+
+  const releasedTotal = a.released + b.released;
+  const ledger = store.tables.referral_credits.filter((c) => c.kind === 'release');
+  const finalRow = store.tables.referrals.find((r) => r.referred_email === B_EMAIL)!;
+
+  console.log(
+    `  [F3] concurrent release: sweep1=${a.released} sweep2=${b.released} ` +
+      `releasedTotal=${releasedTotal} ledgerRows=${ledger.length}`
+  );
+  assert.equal(releasedTotal, 1, 'exactly one sweep wins the release');
+  assert.equal(ledger.length, 1, 'exactly ONE credit ledger row — no double credit');
+  assert.equal(finalRow.status, 'released', 'referral ends released');
+
+  console.log('  [F3] concurrent release no-double-credit: PASS');
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   console.log('\nCC-04 referral lifecycle prove-fixed\n');
   verifyAdapter();
@@ -434,6 +475,7 @@ async function main() {
   await verifySelfReferral();
   await verifyNoEventNoMovement();
   await verifyPayout();
+  await verifyNoDoubleCreditOnConcurrentRelease();
   console.log('\nALL ASSERTIONS PASSED — CC-04 affiliate lifecycle prove-fixed.');
 }
 
