@@ -18,11 +18,17 @@ export type HarmSeverity = 'critical';
  *
  * Progressive verb forms (`cutting|hurting|killing myself`) are included so
  * ongoing harm ("I keep cutting myself") is caught, not just the simple form.
+ * The gerund / phrase forms "ending my life" and "ending it all" / "end it all"
+ * are explicit and kept tight so benign speech ("the story ends with her life
+ * saved", "end it here") never fires.
  */
 const CRITICAL_SELF_HARM_PATTERNS = [
   /kill myself/i,
   /want to die/i,
   /end my life/i,
+  /ending my life/i,
+  /end it all/i,
+  /ending it all/i,
   /hurt myself/i,
   /cut myself/i,
   /cutting myself/i,
