@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from '../auth/auto-provision';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import os from 'os';
+import path from 'path';
 
 interface CarouselSlide {
   slide_number: number;
@@ -149,7 +151,10 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
       try {
         const { renderCarouselPNGs } = await import('./carousel-image');
         const { sendCarouselToTelegram } = await import('../delivery/telegram');
-        const rendered = await renderCarouselPNGs(carousel);
+        // Serverless filesystems are read-only except /tmp — process.cwd()
+        // (public/carousels) throws EROFS on Vercel. Render into /tmp so the
+        // PNGs can actually be written and then read back for delivery.
+        const rendered = await renderCarouselPNGs(carousel, path.join(os.tmpdir(), 'cc-carousels'));
         if (rendered.error) {
           logger.error(
             `Telegram delivery skipped for "${carousel.title}": PNG render failed`,

@@ -113,7 +113,7 @@ export async function sendCarouselToTelegram(
     return { ok: false, reason: 'no-token' };
   }
   logger.info(
-    `Telegram carousel delivery starting: chatId="${chatId}", slides=${pngBuffers.length}, tokenSet=true, hasBlob=${typeof Blob !== 'undefined'}, hasFormData=${typeof FormData !== 'undefined'}`
+    `Telegram carousel delivery starting: chatId="${chatId}", slides=${pngBuffers.length}, tokenSet=true`
   );
 
   const slideCount = pngBuffers.length;
