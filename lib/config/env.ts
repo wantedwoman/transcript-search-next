@@ -13,6 +13,8 @@ const envSchema = z.object({
   GHL_LOCATION_ID: z.string().min(1).optional(),
   GHL_WEBHOOK_SECRET: z.string().optional().default(''),
   CRON_SECRET: z.string().optional().default(''),
+  TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+  TELEGRAM_CHAT_ID: z.string().min(1).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 

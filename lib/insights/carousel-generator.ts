@@ -127,15 +127,53 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
     // Store carousels in database
     for (const carousel of carousels) {
       const latestAggregate = aggregates[0] as Record<string, unknown>;
-      const { error: insertError } = await supabase.from('carousel_content').insert({
-        title: carousel.title,
-        slides: carousel.slides,
-        status: 'draft',
-        source_insight_id: latestAggregate.id,
-      });
+      const { data: stored, error: insertError } = await supabase
+        .from('carousel_content')
+        .insert({
+          title: carousel.title,
+          slides: carousel.slides,
+          status: 'draft',
+          source_insight_id: latestAggregate.id,
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         logger.error('Failed to store carousel content', insertError);
+        continue;
+      }
+
+      // Auto-deliver to Telegram after every generation (cron + manual).
+      // Renders the 5 slides to PNGs and sends them to the owner's chat.
+      // Never blocks the generation pipeline if delivery fails.
+      try {
+        const { renderCarouselPNGs } = await import('./carousel-image');
+        const { sendCarouselToTelegram } = await import('../delivery/telegram');
+        const rendered = await renderCarouselPNGs(carousel);
+        if (rendered.error) {
+          logger.error(
+            `Telegram delivery skipped for "${carousel.title}": PNG render failed`,
+            rendered.error.message
+          );
+          continue;
+        }
+        const pngBuffers: Buffer[] = [];
+        for (const pngPath of rendered.pngFiles) {
+          const { readFile } = await import('fs/promises');
+          pngBuffers.push(await readFile(pngPath));
+        }
+        const result = await sendCarouselToTelegram(carousel, pngBuffers);
+        if (result.ok) {
+          logger.info(
+            `Carousel "${carousel.title}" (${carousel.slides.length} slides) delivered to Telegram`
+          );
+        } else {
+          logger.warn(
+            `Telegram delivery issue for "${carousel.title}": ${result.reason || 'unknown'}`
+          );
+        }
+      } catch (deliveryErr) {
+        logger.error(`Telegram delivery failed for "${carousel.title}"`, deliveryErr);
       }
     }
 
