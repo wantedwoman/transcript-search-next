@@ -3,7 +3,7 @@ import { getSimilaritySearch } from '../../../lib/search/similarity-search';
 import { getOpenRouterAnswerGenerator } from '../../../lib/openrouter/answer-generation';
 import { logger } from '../../../lib/utils/logger';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const SYSTEM_EXTRACTION_PATTERNS = [
   /how are you built/i,
