@@ -142,6 +142,19 @@ export default async function AdminPage() {
               Track who referred whom, commission status, and payouts.
             </p>
           </Link>
+
+          <Link
+            href="/admin/harm-alerts"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">warning</span>
+              <h2 className="text-xl font-bold">Harm Alerts</h2>
+            </div>
+            <p className="text-white/60 text-sm">
+              Review critical safety alerts and acknowledge them.
+            </p>
+          </Link>
         </div>
       </div>
     </div>
