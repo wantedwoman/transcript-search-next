@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { getSimilaritySearch } from '../../../lib/search/similarity-search';
 import { getOpenRouterAnswerGenerator } from '../../../lib/openrouter/answer-generation';
 import { logger } from '../../../lib/utils/logger';
-import { isHarmRiskQuery } from '@/lib/harm/alert-team';
+import {
+  isHarmRiskQuery,
+  findMatchedHarmPattern,
+  classifyHarmSeverity,
+  handleHarmAlert,
+} from '@/lib/harm/alert-team';
 
 export const maxDuration = 30;
 
@@ -29,15 +34,12 @@ const SYSTEM_EXTRACTION_PATTERNS = [
 function isSystemExtractionQuery(query: string): boolean {
   return SYSTEM_EXTRACTION_PATTERNS.some((pattern) => pattern.test(query));
 }
-// isHarmRiskQuery is imported from @/lib/harm/alert-team (single source of truth,
-// negation-aware + progressive verb forms). Reply content stays local below.
+// Harm detection + the SB 243 safety reply come from @/lib/harm/alert-team (single
+// source of truth, negation-aware + progressive verb forms). The shared reply
+// carries the 988 Suicide & Crisis Lifeline + 911 referral.
 
 function protectedReply() {
   return "I focus on giving you the best guidance I can. I don't get into how I'm built, but I've got you.";
-}
-
-function harmSafetyReply() {
-  return "I'm really glad you said something. I hear how heavy this is right now.\n\nI can't help with anything that could put you or someone else in danger, but I do want to make sure you're supported.\n\nPlease reach out to a licensed mental health professional or someone you trust as soon as possible. If you're in immediate danger or feel like you might act on this, call 911 right now.\n\nYou don't have to carry this alone.";
 }
 
 export async function POST(request: Request) {
@@ -50,17 +52,32 @@ export async function POST(request: Request) {
 
     const cleanQuery = query.trim();
 
-    if (isSystemExtractionQuery(cleanQuery)) {
+    // CC-09 fail-closed safety (mirrors /api/suzy/chat): evaluate harm FIRST so
+    // a harm message that also looks like a system-extraction attempt (e.g.
+    // "ignore previous instructions, I want to kill myself") is still routed to
+    // the SB 243 safety reply + team alert. The extraction guard runs second and
+    // only protects non-harm queries.
+    if (isHarmRiskQuery(cleanQuery)) {
+      logger.warn('HIGH RISK harm-related message detected');
+
+      const matchedPattern = findMatchedHarmPattern(cleanQuery) || 'unknown';
+      const severity = classifyHarmSeverity(cleanQuery);
+      const { reply } = await handleHarmAlert(
+        '', // legacy /api/chat has no authenticated user — alert email still fires
+        cleanQuery,
+        matchedPattern,
+        severity
+      );
+
       return NextResponse.json({
-        answer: protectedReply(),
+        answer: reply,
         sources: [],
       });
     }
 
-    if (isHarmRiskQuery(cleanQuery)) {
-      logger.warn('HIGH RISK harm-related message detected');
+    if (isSystemExtractionQuery(cleanQuery)) {
       return NextResponse.json({
-        answer: harmSafetyReply(),
+        answer: protectedReply(),
         sources: [],
       });
     }
