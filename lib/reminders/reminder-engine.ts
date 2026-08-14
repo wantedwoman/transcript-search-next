@@ -1,5 +1,4 @@
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/utils/logger';
 
 export type MessageStyle = 'gentle' | 'direct' | 'hype';
@@ -167,7 +166,11 @@ export async function createReminder(
  * List active (unsent) reminders for the authenticated user.
  */
 export async function listActiveReminders(userId: string): Promise<UserReminder[]> {
-  const supabase = await createServerSupabaseClient();
+  // Service-role client so reads are not blocked by the "Admin can read all
+  // reminders" RLS policy, which subqueries auth.users and fails for the
+  // anon/authenticated roles. Ownership is enforced at the application layer:
+  // every query here filters by the authenticated caller's userId.
+  const supabase = createServiceRoleClient();
 
   const { data, error } = await supabase
     .from('user_reminders')
@@ -192,7 +195,11 @@ export async function cancelReminder(
   userId: string,
   reminderId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createServerSupabaseClient();
+  // Service-role client for the same reason as listActiveReminders — the
+  // RLS admin policy on user_reminders subqueries auth.users and denies the
+  // anon/authenticated roles. Ownership is enforced here (and again in the
+  // route) by filtering every query on the authenticated caller's userId.
+  const supabase = createServiceRoleClient();
 
   // Verify ownership and that it's not already sent
   const { data: reminder, error: fetchError } = await supabase
