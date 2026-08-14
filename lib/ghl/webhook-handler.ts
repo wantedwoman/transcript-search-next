@@ -277,6 +277,78 @@ export async function verifyGHLWebhookSignature(
 }
 
 /**
+ * Build a deterministic idempotency key for a webhook event.
+ *
+ * The key is a pure function of the event CONTENT — normalized event name,
+ * contact email/id, payment amount, and any natural event id embedded in the
+ * envelope (invoice/order/payment/subscription id) — so a redelivered or
+ * replayed webhook (identical bytes) produces the SAME key. It MUST NOT embed
+ * a per-delivery timestamp (`Date.now()`) or random value: the persisted row
+ * and the dedupe query both use this function, so a fresh key on every
+ * delivery would make `isDuplicate` dead code and allow double-processing.
+ */
+export function buildIdempotencyKey(payload: Record<string, unknown>): string {
+  // A key supplied by the sender (or set upstream) wins outright.
+  const explicit = firstString(payload.idempotency_key);
+  if (explicit) return explicit;
+
+  const event = firstString(payload.event, payload.type) ?? 'unknown';
+  const email = (firstString(payload.email, getPath(payload, 'data.contact.email')) ?? '').trim().toLowerCase();
+  const contactId = firstString(
+    payload.contact_id,
+    payload.contactId,
+    getPath(payload, 'data.contact.id', 'contact.id')
+  );
+
+  const parts: string[] = [event, email, contactId ?? ''];
+
+  // Natural event id from the envelope — stable across redeliveries of the
+  // same event and distinct across separate payments/subscriptions.
+  const eventId = firstString(
+    getPath(payload, 'data.invoice.id', 'invoice.id'),
+    getPath(payload, 'data.order.id', 'order.id'),
+    getPath(payload, 'data.payment.id', 'payment.id'),
+    getPath(payload, 'data.subscription.id', 'subscription.id'),
+    getPath(payload, 'data.purchase.id', 'purchase.id'),
+    getPath(payload, 'data.tag.id', 'tag.id'),
+    getPath(payload, 'data.id', 'id')
+  );
+  if (eventId) parts.push(`event:${eventId}`);
+
+  // Payment amount, when present, is part of the payment identity.
+  const amount = Number(
+    getPath(
+      payload,
+      'amount',
+      'data.amount',
+      'data.invoice.amount',
+      'invoice.amount',
+      'data.order.amount',
+      'order.amount',
+      'data.payment.amount',
+      'payment.amount'
+    )
+  );
+  if (Number.isFinite(amount) && amount > 0) parts.push(`amount:${amount}`);
+
+  // Contact tags (contact.tagged / contact.untagged) are part of identity.
+  const tags = Array.isArray(payload.tags)
+    ? payload.tags.filter((t): t is string => typeof t === 'string')
+    : [];
+  if (tags.length > 0) parts.push(`tags:${tags.slice().sort().join(',')}`);
+
+  // Stable event timestamp carried by the payload — NOT Date.now().
+  const eventDate = firstString(
+    getPath(payload, 'data.createdAt', 'createdAt', 'data.eventDate', 'eventDate'),
+    getPath(payload, 'data.timestamp', 'timestamp'),
+    getPath(payload, 'data.invoice.date', 'invoice.date', 'data.order.date', 'order.date')
+  );
+  if (eventDate) parts.push(`at:${eventDate}`);
+
+  return parts.join('|');
+}
+
+/**
  * Log a webhook event for audit trail.
  */
 async function logWebhookEvent(
@@ -291,6 +363,7 @@ async function logWebhookEvent(
     email,
     status,
     payload,
+    idempotency_key: buildIdempotencyKey(payload),
     created_at: new Date().toISOString(),
   });
 
@@ -371,10 +444,10 @@ export async function processGHLEvent(
     };
   }
 
-  // Idempotency check
-  const idempotencyKey =
-    normalized.idempotency_key ||
-    `${normalized.event}-${email}-${normalized.contact_id || ''}-${Date.now()}`;
+  // Idempotency check — the key is a deterministic function of the event
+  // content (not Date.now()), so a redelivered webhook yields the same key and
+  // isDuplicate below matches the row that logWebhookEvent persists.
+  const idempotencyKey = buildIdempotencyKey(normalized);
   const isDup = await isDuplicate(D.createServiceRoleClient(), idempotencyKey);
   if (isDup) {
     logger.info(`Duplicate webhook event: ${idempotencyKey}`);

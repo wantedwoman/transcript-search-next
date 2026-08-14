@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  buildIdempotencyKey,
   normalizeGHLEvent,
   processGHLEvent,
   verifyGHLWebhookSignature,
@@ -73,9 +74,12 @@ export async function handleGHLEvent(request: NextRequest, deps: GHLHandlerDeps 
     // Normalize email
     payload.email = payload.email.trim().toLowerCase();
 
-    // Generate idempotency key if not provided
+    // Generate a deterministic idempotency key if not provided. The key is a
+    // pure function of the event content (NOT Date.now()) so redeliveries of
+    // the same webhook get the same key, and the dedupe in processGHLEvent
+    // actually matches the row logWebhookEvent persists.
     if (!payload.idempotency_key) {
-      payload.idempotency_key = `${payload.event}-${payload.email}-${payload.contact_id || ''}-${Date.now()}`;
+      payload.idempotency_key = buildIdempotencyKey(payload);
     }
 
     logger.info(`Processing GHL webhook: ${payload.event} for ${payload.email}`);

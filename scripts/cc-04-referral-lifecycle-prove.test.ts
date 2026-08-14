@@ -11,6 +11,11 @@
  *  [V3] No GHL event → no movement (pending stays).
  *  [V4] GHL API v2 event-name adapter maps InvoicePaid / ContactTagUpdate /
  *       OrderStatusUpdate onto the internal handler event names (Convention-1).
+ *  [V5] Idempotency replay: the same webhook delivered twice → the second
+ *       delivery is recognized as duplicate and is NOT re-processed (no double
+ *       credit). F-2 fix: logWebhookEvent persists a deterministic
+ *       idempotency_key (a pure function of event content, not Date.now()) and
+ *       isDuplicate matches it on replay.
  *
  * Run with: npx tsx scripts/cc-04-referral-lifecycle-prove.test.ts
  *
@@ -427,6 +432,85 @@ async function verifyPayout() {
 }
 
 // ---------------------------------------------------------------------------
+// V5 — Idempotency replay: the same webhook delivered twice → the second
+// delivery is recognized as a duplicate and is NOT re-processed (no double
+// credit). This proves F-2: logWebhookEvent persists a deterministic
+// idempotency_key and isDuplicate matches it on replay.
+// ---------------------------------------------------------------------------
+async function verifyIdempotentReplay() {
+  const { store, client } = freshClient(seedBase());
+
+  // Give the payment event a referral to confirm, so a replay WOULD re-confirm
+  // (double-credit) if the idempotency dedupe did not skip it.
+  await recordAttribution(client, {
+    code: A_CODE,
+    referredEmail: B_EMAIL,
+    referredUserId: 'uid-bella',
+  });
+
+  // Count handler side-effects so we can prove the second delivery is skipped.
+  const calls: string[] = [];
+  const deps = {
+    createServiceRoleClient: () => client,
+    provisionUser: async (email: string) => {
+      calls.push('provision');
+      return { userId: `uid-${email}`, created: true };
+    },
+    revokeUser: async () => {
+      calls.push('revoke');
+    },
+    sendGHLWelcomeEmail: async () => {
+      calls.push('welcome');
+    },
+  };
+
+  // Same identity delivered twice (simulating a GHL redelivery/replay).
+  const delivery = {
+    type: 'InvoicePaid',
+    data: {
+      contact: { id: 'contact-b', email: B_EMAIL },
+      invoice: { id: 'inv-1', status: 'paid', amount: 49, currency: 'USD' },
+    },
+  };
+
+  // 1. First delivery → processed exactly once.
+  const first = await processGHLEvent(delivery, deps);
+  assert.equal(first.status, 'processed', 'first delivery processes');
+  assert.ok(first.id, 'first delivery returns an id (the idempotency key)');
+  assert.equal(calls.filter((c) => c === 'provision').length, 1, 'provisioned once on first delivery');
+
+  const processed = store.tables.webhook_events.filter((r) => r.status === 'processed');
+  assert.equal(processed.length, 1, 'exactly one processed webhook row');
+  assert.ok(processed[0].idempotency_key, 'processed row PERSISTS the idempotency_key');
+  assert.equal(processed[0].idempotency_key, first.id, 'persisted key equals the queried key');
+
+  // 2. Second delivery (same identity) → duplicate, NOT re-processed.
+  const second = await processGHLEvent(delivery, deps);
+  assert.equal(second.status, 'duplicate', 'second delivery is recognized as duplicate');
+  assert.equal(second.id, first.id, 'duplicate returns the same idempotency key');
+  assert.equal(
+    calls.filter((c) => c === 'provision').length,
+    1,
+    'NOT re-processed — provision side-effect ran only once'
+  );
+
+  const processedAfter = store.tables.webhook_events.filter((r) => r.status === 'processed');
+  assert.equal(processedAfter.length, 1, 'still exactly one processed row — no re-process');
+  const duplicates = store.tables.webhook_events.filter((r) => r.status === 'duplicate');
+  assert.equal(duplicates.length, 1, 'duplicate delivery logged as duplicate');
+  assert.equal(duplicates[0].idempotency_key, first.id, 'duplicate row shares the same idempotency_key');
+
+  // 3. No double credit: a replay produces no second release ledger row and no
+  //    second referral payment confirmation.
+  const ledger = store.tables.referral_credits.filter((c) => c.kind === 'release');
+  assert.equal(ledger.length, 0, 'no release ledger row from replay (hold not elapsed)');
+  const referrals = store.tables.referrals.filter((r) => r.referred_email === B_EMAIL);
+  assert.equal(referrals.length, 1, 'referral row not duplicated by replay');
+
+  console.log('  [V5] idempotency replay → duplicate, no re-process: PASS');
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   console.log('\nCC-04 referral lifecycle prove-fixed\n');
   verifyAdapter();
@@ -434,6 +518,7 @@ async function main() {
   await verifySelfReferral();
   await verifyNoEventNoMovement();
   await verifyPayout();
+  await verifyIdempotentReplay();
   console.log('\nALL ASSERTIONS PASSED — CC-04 affiliate lifecycle prove-fixed.');
 }
 
