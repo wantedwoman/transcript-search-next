@@ -50,7 +50,7 @@ export async function POST() {
     }
 
     // Generate new carousel content
-    const carousels = await generateCarouselContent();
+    const { carousels } = await generateCarouselContent();
 
     if (carousels.length === 0) {
       return NextResponse.json({ error: 'No insights available for carousel generation' }, { status: 400 });
