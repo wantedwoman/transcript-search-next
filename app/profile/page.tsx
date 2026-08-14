@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import ReminderSetup from '../../components/ReminderSetup';
 
 interface OnboardingData {
   age: string;
@@ -360,6 +361,12 @@ export default function ProfilePage() {
             <div className="text-center text-error font-label font-semibold text-sm">{errorMessage}</div>
           )}
         </div>
+
+        {/* Divider */}
+        <div className="border-t border-outline-variant/20 my-8"></div>
+
+        {/* Check-In Reminders */}
+        <ReminderSetup />
 
         {/* Divider */}
         <div className="border-t border-outline-variant/20 my-8"></div>
