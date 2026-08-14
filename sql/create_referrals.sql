@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS public.referrals (
   referred_email TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'released', 'paid')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  released_at TIMESTAMPTZ
+  released_at TIMESTAMPTZ,
+  credit_amount NUMERIC
 );
 
 -- Indexes for common queries
