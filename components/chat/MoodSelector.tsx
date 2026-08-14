@@ -56,7 +56,7 @@ export default function MoodSelector({ selectedMood, onMoodChange }: MoodSelecto
             key={mood}
             onClick={() => onMoodChange(mood)}
             className={`
-              px-3 py-1 rounded-full text-[11px] font-label font-semibold uppercase tracking-wider
+              px-3 py-1 rounded-full text-[0.6875rem] font-label font-semibold uppercase tracking-wider
               border transition-all active:scale-95 duration-200
               ${isActive
                 ? `${colors.activeBg} ${colors.activeText} ${colors.activeBorder}`

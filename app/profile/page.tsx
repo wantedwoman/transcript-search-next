@@ -249,7 +249,7 @@ export default function ProfilePage() {
               <p className="text-lg font-body text-on-surface font-semibold">{userEmail}</p>
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${userStatus === 'active' ? 'bg-tertiary shadow-[0_0_8px_#e9c349]' : 'bg-error'}`}></span>
-                <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/60">
+                <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/60">
                   {userStatus === 'active' ? 'Active' : userStatus || 'Unknown'}
                 </span>
               </div>
@@ -260,7 +260,7 @@ export default function ProfilePage() {
         {/* Onboarding Form */}
         <div className="space-y-6">
           <h2 className="text-xl font-headline font-bold text-primary">Tell me About You</h2>
-          <p className="text-sm font-body text-secondary/60">The more I know, the better I can help.</p>
+          <p className="text-body font-body text-secondary/60">The more I know, the better I can help.</p>
 
           {/* Age */}
           <div className="space-y-2">
@@ -269,7 +269,7 @@ export default function ProfilePage() {
               type="number"
               value={onboarding.age}
               onChange={(e) => setOnboarding(prev => ({ ...prev, age: e.target.value }))}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
               placeholder="Your age"
               min="18"
               max="120"
@@ -283,7 +283,7 @@ export default function ProfilePage() {
               type="text"
               value={onboarding.profession}
               onChange={(e) => setOnboarding(prev => ({ ...prev, profession: e.target.value }))}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
               placeholder="What do you do?"
             />
           </div>
@@ -294,7 +294,7 @@ export default function ProfilePage() {
             <select
               value={onboarding.relationship_status}
               onChange={(e) => setOnboarding(prev => ({ ...prev, relationship_status: e.target.value }))}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all appearance-none"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all appearance-none"
             >
               {RELATIONSHIP_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-surface-container text-on-surface">
@@ -310,7 +310,7 @@ export default function ProfilePage() {
             <select
               value={onboarding.income_range}
               onChange={(e) => setOnboarding(prev => ({ ...prev, income_range: e.target.value }))}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all appearance-none"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all appearance-none"
             >
               {INCOME_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-surface-container text-on-surface">
@@ -327,7 +327,7 @@ export default function ProfilePage() {
               type="text"
               value={onboarding.hobbies}
               onChange={(e) => setOnboarding(prev => ({ ...prev, hobbies: e.target.value }))}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
               placeholder="What do you enjoy?"
             />
           </div>
@@ -339,7 +339,7 @@ export default function ProfilePage() {
               value={onboarding.love_struggles}
               onChange={(e) => setOnboarding(prev => ({ ...prev, love_struggles: e.target.value }))}
               rows={4}
-              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all resize-none"
+              className="w-full px-4 py-3 rounded-lg bg-surface-container border border-outline-variant/20 text-on-surface placeholder:text-secondary/30 font-body text-input min-h-touch-target focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all resize-none"
               placeholder="What are your biggest challenges in love and dating?"
             />
           </div>
@@ -367,14 +367,14 @@ export default function ProfilePage() {
         {/* Referral Program */}
         <div className="space-y-6">
           <h2 className="text-xl font-headline font-bold text-primary">Share Coach Cass AI 💜</h2>
-          <p className="text-sm font-body text-secondary/60">Share your link and earn when others join.</p>
+          <p className="text-body font-body text-secondary/60">Share your link and earn when others join.</p>
 
           {referral ? (
             <div className="glass-panel-solid rounded-lg border border-outline-variant/20 p-6 space-y-4">
               <div className="space-y-2">
                 <p className="text-xs font-label font-semibold uppercase tracking-widest text-secondary/60">Your Referral Link</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-surface-container rounded-lg px-4 py-3 text-sm font-body text-on-surface truncate border border-outline-variant/20">
+                  <div className="flex-1 bg-surface-container rounded-lg px-4 py-3 text-body font-body text-on-surface truncate border border-outline-variant/20">
                     {referral.referralLink}
                   </div>
                   <button
@@ -389,15 +389,15 @@ export default function ProfilePage() {
               <div className="grid grid-cols-3 gap-3 pt-2">
                 <div className="text-center p-3 rounded-lg bg-surface-container border border-outline-variant/20">
                   <p className="text-2xl font-headline font-bold text-tertiary">{referral.pendingCount}</p>
-                  <p className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Pending</p>
+                  <p className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Pending</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-surface-container border border-outline-variant/20">
                   <p className="text-2xl font-headline font-bold text-primary">{referral.releasedCount}</p>
-                  <p className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Released</p>
+                  <p className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Released</p>
                 </div>
                 <div className="text-center p-3 rounded-lg bg-surface-container border border-outline-variant/20">
                   <p className="text-2xl font-headline font-bold text-green-400">{referral.paidCount}</p>
-                  <p className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Paid</p>
+                  <p className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/50 mt-1">Paid</p>
                 </div>
               </div>
             </div>
@@ -431,15 +431,15 @@ export default function ProfilePage() {
       <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
         <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/chat">
           <span className="material-symbols-outlined text-2xl">chat_bubble</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Chat</span>
         </a>
         <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/insights">
           <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Insights</span>
         </a>
-        <a className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/profile">
+        <a className="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/profile">
           <span className="material-symbols-outlined text-2xl">person</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Profile</span>
         </a>
       </nav>
     </div>

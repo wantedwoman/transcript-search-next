@@ -104,12 +104,12 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
               placeholder="Type what you're feeling... Coach Cass AI will help you say it better."
-              className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-on-surface font-body text-base placeholder:text-secondary/30 focus:outline-none focus:border-primary/40 resize-none"
+              className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-4 py-3 text-on-surface font-body text-base min-h-touch-target placeholder:text-secondary/30 focus:outline-none focus:border-primary/40 resize-none"
               rows={4}
               maxLength={2000}
               disabled={loading}
             />
-            <p className="text-[10px] font-label text-secondary/40 mt-1">
+            <p className="text-[0.625rem] font-label text-secondary/40 mt-1">
               {rawText.length}/2000
             </p>
           </div>
@@ -127,7 +127,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
                   disabled={loading}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-label font-semibold transition-all active:scale-95 ${
                     tone === t.value
-                      ? 'bg-primary text-white shadow-lg'
+                      ? 'bg-primary text-on-primary shadow-lg'
                       : 'bg-surface-container-low border border-outline-variant/20 text-secondary/70 hover:border-primary/40 hover:text-primary'
                   }`}
                 >
@@ -136,7 +136,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
                 </button>
               ))}
             </div>
-            <p className="text-[10px] font-label text-secondary/40 mt-2">
+            <p className="text-[0.625rem] font-label text-secondary/40 mt-2">
               {TONES.find((t) => t.value === tone)?.description}
             </p>
           </div>
@@ -169,7 +169,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
             <div className="space-y-4">
               <div className="border border-outline-variant/10 rounded-lg overflow-hidden">
                 <div className="px-4 py-2 bg-surface-container-low border-b border-outline-variant/10">
-                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/50">
+                  <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/50">
                     Before: Your Original
                   </span>
                 </div>
@@ -180,7 +180,7 @@ export default function DraftComposer({ isOpen, onClose, onInsertDraft }: DraftC
 
               <div className="border border-primary/30 rounded-lg overflow-hidden">
                 <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
-                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-primary">
+                  <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-primary">
                     After: Coach Cass AI&apos;s Draft
                   </span>
                 </div>

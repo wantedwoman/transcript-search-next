@@ -294,7 +294,7 @@ export default function SuzyChatWindow() {
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_#e9c349]"></span>
-                  <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/60">Online</span>
+                  <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/60">Online</span>
                 </div>
                 <MoodSelector selectedMood={selectedMood} onMoodChange={(mood) => {
                   setSelectedMood(mood);
@@ -364,7 +364,7 @@ export default function SuzyChatWindow() {
         </div>
 
         {/* Chat History Area */}
-        <div className="space-y-8">
+        <div className="space-y-message-gap">
           {messages.map((message, index) => {
             const isLatestBotMessage = !message.isUser && index === messages.length - 1;
             return (
@@ -375,19 +375,19 @@ export default function SuzyChatWindow() {
               >
                 <div className={`flex flex-col gap-2 ${message.isUser ? 'items-end text-right' : ''}`}>
                   <div
-                    className={`message-shadow glass-panel-solid px-6 py-5 rounded-lg font-body text-lg leading-relaxed ${
+                    className={`message-shadow glass-panel-solid px-6 py-5 rounded-lg font-body text-chat ${
                       message.isUser
-                        ? 'bg-primary text-white rounded-tr-none border border-primary/20'
+                        ? 'bg-primary text-on-primary rounded-tr-none border border-primary/20'
                         : 'bg-surface-container-high/60 text-on-surface rounded-tl-none border-tl-4 border-tertiary'
                     }`}
                   >
                     <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 px-2">
-                    <span className="text-[10px] font-label font-semibold uppercase tracking-widest text-secondary/40">
+                    <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/40">
                       {message.isUser ? 'You' : 'Coach Cass AI'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {!message.isUser && message.mood && (
-                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] bg-white/10 border border-white/10">
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[0.5625rem] bg-white/10 border border-white/10">
                           {MOOD_EMOJI[message.mood]} {MOOD_LABELS[message.mood]}
                         </span>
                       )}
@@ -456,7 +456,7 @@ export default function SuzyChatWindow() {
             <input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-lg py-4 min-w-0 focus:outline-none"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-secondary/30 font-body text-input py-4 min-h-touch-target min-w-0 focus:outline-none"
               placeholder="Type your message..."
               type="text"
               disabled={loading}
@@ -522,19 +522,19 @@ export default function SuzyChatWindow() {
       {/* BottomNavBar */}
       <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
         {/* Chat Tab (Active) */}
-        <Link href="/chat" prefetch={true} className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out">
+        <Link href="/chat" prefetch={true} className="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-6 py-2 active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">chat_bubble</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Chat</span>
         </Link>
         {/* Insights Tab */}
         <Link href="/insights" prefetch={true} className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Insights</span>
         </Link>
         {/* Profile Tab */}
         <Link href="/profile" prefetch={true} className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out">
           <span className="material-symbols-outlined text-2xl">person</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Profile</span>
         </Link>
       </nav>
     </div>

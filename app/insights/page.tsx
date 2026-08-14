@@ -160,15 +160,15 @@ export default function InsightsPage() {
         <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
           <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/chat">
             <span className="material-symbols-outlined text-2xl">chat_bubble</span>
-            <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
+            <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Chat</span>
           </a>
-          <a className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/insights">
+          <a className="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/insights">
             <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-            <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
+            <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Insights</span>
           </a>
           <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/profile">
             <span className="material-symbols-outlined text-2xl">person</span>
-            <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
+            <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Profile</span>
           </a>
         </nav>
       </div>
@@ -206,7 +206,7 @@ export default function InsightsPage() {
             <span className="text-5xl">{toneInfo.emoji}</span>
             <div>
               <h2 className={`text-2xl font-headline font-bold ${toneInfo.color}`}>{toneInfo.label}</h2>
-              <p className="text-sm font-body text-secondary/60 mt-1">
+              <p className="text-body font-body text-secondary/60 mt-1">
                 Based on {insights.length} conversation{insights.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -222,8 +222,8 @@ export default function InsightsPage() {
                 <div key={i} className="flex items-center gap-3">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-body text-on-surface text-sm capitalize">{item.topic}</span>
-                      <span className="text-[10px] font-label text-secondary/50">{item.count}×</span>
+                      <span className="font-body text-on-surface text-body capitalize">{item.topic}</span>
+                      <span className="text-[0.625rem] font-label text-secondary/50">{item.count}×</span>
                     </div>
                     <div className="w-full bg-surface-container rounded-full h-2">
                       <div
@@ -254,7 +254,7 @@ export default function InsightsPage() {
               {growthAreas.map((suggestion, i) => (
                 <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-surface-container/50">
                   <span className="text-primary text-lg mt-0.5">✦</span>
-                  <p className="font-body text-sm text-on-surface">{suggestion}</p>
+                  <p className="font-body text-body text-on-surface">{suggestion}</p>
                 </div>
               ))}
             </div>
@@ -278,7 +278,7 @@ export default function InsightsPage() {
               return (
                 <div key={insight.id} className="glass-panel-solid rounded-lg border border-outline-variant/20 p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-label text-secondary/50 uppercase tracking-widest">
+                    <span className="text-[0.625rem] font-label text-secondary/50 uppercase tracking-widest">
                       {new Date(insight.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                     <span className={`text-xs font-label font-semibold ${toneDetail.color}`}>
@@ -286,7 +286,7 @@ export default function InsightsPage() {
                     </span>
                   </div>
                   {insight.summary && (
-                    <p className="font-body text-sm text-on-surface">{insight.summary}</p>
+                    <p className="font-body text-body text-on-surface">{insight.summary}</p>
                   )}
                   {insight.topics && insight.topics.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -308,7 +308,7 @@ export default function InsightsPage() {
           <div className="text-center space-y-4 py-8">
             <div className="text-6xl">🔮</div>
             <h2 className="text-xl font-headline font-bold text-primary">Insights Are Brewing</h2>
-            <p className="font-body text-secondary/60">
+            <p className="font-body text-body text-secondary/60">
               Chat a bit more and your personalized insights will start appearing here.
             </p>
             <Link
@@ -325,15 +325,15 @@ export default function InsightsPage() {
       <nav className="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-3 bg-[#171117] z-50 rounded-t-lg border-t border-[#4c4451]/30 shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
         <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/chat">
           <span className="material-symbols-outlined text-2xl">chat_bubble</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Chat</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Chat</span>
         </a>
-        <a className="flex flex-col items-center justify-center bg-primary text-white rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/insights">
+        <a className="flex flex-col items-center justify-center bg-primary text-on-primary rounded-full px-6 py-2 active:scale-90 duration-300 ease-out" href="/insights">
           <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Insights</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Insights</span>
         </a>
         <a className="flex flex-col items-center justify-center text-[#ecbaba] opacity-60 px-6 py-2 hover:opacity-100 transition-opacity active:scale-90 duration-300 ease-out" href="/profile">
           <span className="material-symbols-outlined text-2xl">person</span>
-          <span className="font-label text-[11px] font-semibold uppercase tracking-widest mt-1">Profile</span>
+          <span className="font-label text-[0.6875rem] font-semibold uppercase tracking-widest mt-1">Profile</span>
         </a>
       </nav>
     </div>

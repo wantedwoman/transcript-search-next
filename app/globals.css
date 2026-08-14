@@ -56,6 +56,17 @@
   --radius-md: 1rem;
   --radius-xl: 3rem;
   --radius: 1rem;
+
+  /* CC-12: Large-text / readability tokens for the 40+ mobile audience.
+     All rem-based so text scales with the system font-size setting. */
+  --text-body: 1.0625rem; /* ≥17px body copy */
+  --text-body--line-height: 1.6;
+  --text-chat: 1.125rem; /* ≥16px chat history (18px) */
+  --text-chat--line-height: 1.7;
+  --text-input: 1.125rem; /* 18px input text */
+  --text-input--line-height: 1.5;
+  --spacing-touch-target: 3.25rem; /* 52px min tap target for inputs */
+  --spacing-message-gap: 2.5rem; /* 40px gap between chat messages */
 }
 
 body {
@@ -63,6 +74,8 @@ body {
   font-family: var(--font-body);
   color: var(--color-on-surface);
   min-height: max(884px, 100dvh);
+  /* CC-12: no horizontal scroll on narrow/mobile viewports (decorative fixed glows) */
+  overflow-x: hidden;
   background-image:
     radial-gradient(ellipse at 20% 50%, rgba(88, 22, 72, 0.12) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 20%, rgba(233, 195, 73, 0.06) 0%, transparent 40%),
