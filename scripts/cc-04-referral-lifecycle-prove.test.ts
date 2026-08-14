@@ -37,6 +37,7 @@ const {
   applyPayouts,
   REFERRAL_HOLD_DAYS,
   REFERRAL_CREDIT_AMOUNT,
+  REFERRAL_PAYOUT_THRESHOLD,
 } = await import('../lib/referral/lifecycle');
 
 // ---------------------------------------------------------------------------
@@ -552,6 +553,64 @@ async function verifyNoDoubleCreditOnConcurrentRelease() {
 }
 
 // ---------------------------------------------------------------------------
+// F-4 — payout cron sweep: a hold-elapsed, paid referral with no further
+// webhook still reaches `paid` with its applied ledger rows via the scheduled
+// /api/cron/referral-payouts route (not just as a webhook side-effect).
+// ---------------------------------------------------------------------------
+async function verifyPayoutCron() {
+  (process.env as Record<string, string | undefined>).CRON_SECRET = 'cron-test-secret';
+
+  const { GET, runReferralPayoutSweep } = await import(
+    '../app/api/cron/referral-payouts/route'
+  );
+
+  // The route is CRON_SECRET-guarded: a request with no secret is rejected.
+  const unauthed = await GET(
+    new Request('http://localhost/api/cron/referral-payouts') as any
+  );
+  assert.equal(unauthed.status, 401, 'cron route rejects a call without CRON_SECRET');
+
+  // Seed a referral whose payment was confirmed (paid_at set) and whose 30-day
+  // hold has elapsed (created 31 days ago) — but which received NO subsequent
+  // webhook, so it would sit `pending` forever without a scheduled sweep.
+  const now = new Date();
+  const { store, client } = freshClient({
+    ...seedBase(),
+    referrals: [
+      {
+        id: 'ref-cron-1',
+        referrer_user_id: 'uid-alice',
+        referred_email: B_EMAIL,
+        referred_user_id: 'uid-bella',
+        status: 'pending',
+        credit_amount: REFERRAL_PAYOUT_THRESHOLD, // 50 → a single referral meets the payout threshold
+        flagged: false,
+        paid_at: daysFrom(now, -10).toISOString(), // payment confirmed 10 days ago
+        created_at: daysFrom(now, -(REFERRAL_HOLD_DAYS + 1)).toISOString(), // hold elapsed
+      },
+    ],
+  });
+
+  // Run the real cron sweep against the in-memory store — no webhook involved.
+  const result = await runReferralPayoutSweep(client);
+  assert.deepEqual(result, { released: 1, paid: 1, referrers: 1 }, 'cron sweep releases and pays out');
+
+  const row = store.tables.referrals.find((r) => r.id === 'ref-cron-1')!;
+  assert.equal(row.status, 'paid', 'hold-elapsed paid referral reaches paid');
+  assert.ok(row.paid_at, 'paid_at stamped by the payout sweep');
+
+  const releaseLedger = store.tables.referral_credits.filter((c) => c.kind === 'release');
+  assert.equal(releaseLedger.length, 1, 'release ledger row written by the sweep');
+  assert.equal(releaseLedger[0].status, 'earned', 'release ledger status is earned');
+
+  const paidLedger = store.tables.referral_credits.filter((c) => c.kind === 'paid');
+  assert.equal(paidLedger.length, 1, 'applied (paid) ledger row written by the sweep');
+  assert.equal(paidLedger[0].status, 'applied', 'paid ledger status is applied');
+
+  console.log('  [F4] payout cron sweep pending→released→paid + applied ledger: PASS');
+}
+
+// ---------------------------------------------------------------------------
 async function main() {
   console.log('\nCC-04 referral lifecycle prove-fixed\n');
   verifyAdapter();
@@ -561,6 +620,7 @@ async function main() {
   await verifyPayout();
   await verifyIdempotentReplay();
   await verifyNoDoubleCreditOnConcurrentRelease();
+  await verifyPayoutCron();
   console.log('\nALL ASSERTIONS PASSED — CC-04 affiliate lifecycle prove-fixed.');
 }
 
