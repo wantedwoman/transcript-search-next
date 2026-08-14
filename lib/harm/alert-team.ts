@@ -48,10 +48,26 @@ const CRITICAL_SELF_HARM_PATTERNS = [
  * CC-09 cycle-3 F-5: the old set only matched generic pronouns
  * (`him|her|them|someone`), so "i want to hurt my husband" / "i want to kill my
  * boss" slipped through. Named-target patterns below pair an explicit intent
- * verb (`hurt`/`kill`/`make … suffer`) with an explicit relationship/identity
- * noun, so a named target fires while the negation guard still suppresses
- * "he would never hurt our kids". The noun list stays explicit on purpose — a
- * bare `hurt my <anything>` would FP on "i want to hurt my pride".
+ * framing verb with an explicit relationship/identity noun, so a named target
+ * fires while the negation guard still suppresses "he would never hurt our
+ * kids". The noun list stays explicit on purpose — a bare `hurt my <anything>`
+ * would FP on "i want to hurt my pride".
+ *
+ * CC-09 cycle-3 F-7 precision: the F-5 fix's bare `hurt (my|our)? <noun>` (no
+ * intent framing) fired on the product's core coaching domain — "i hurt my
+ * husband's feelings last night", "i kill my wife with kindness", "i make my
+ * husband suffer when i ignore him", "i hurt my husband emotionally not
+ * physically" all produced a CRITICAL alert + 988/911 reply + team email.
+ * Every named-target violence pattern now requires an intent-framing phrase
+ * (`want to|going to|plan to|feel like|thinking about|…`) immediately before
+ * the harm verb, so only intent-framed threats fire. The F-5 recall set
+ * ("i want to kill my boss", "i want to hurt my partner") already carries the
+ * framing verb, so intent-framing preserves it; gerund forms ("hurting my
+ * husband") are accepted so "i feel like hurting my husband" /
+ * "i am thinking about hurting my ex boyfriend" stay hits. A real threat
+ * embedded in emotional language still fires when the framing verb is present
+ * ("i want to hurt my husband, i cant take his cheating anymore"); only the
+ * BARE emotional uses without intent framing are suppressed.
  */
 const VIOLENCE_TARGET_NOUNS =
   '(husband|wife|spouse|partner|boyfriend|girlfriend|' +
@@ -60,9 +76,43 @@ const VIOLENCE_TARGET_NOUNS =
   'coworker|co-?worker|boss|manager|colleague|neighbor|' +
   'ex[- ]?(boyfriend|girlfriend|husband|wife|partner))';
 
-/** intent-verb + optional possessive + explicit target noun, word-bounded. */
+/**
+ * Intent-framing phrases (CC-09 cycle-3 F-7 precision).
+ *
+ * A named-target violence match only counts when one of these phrases appears
+ * immediately before the harm verb. They cover the judge's recommended set
+ * (`want to|going to|plan to|feel like|thinking about`) plus the natural
+ * desire/future/ideation variants a real threat carries, so recall is
+ * preserved while bare emotional/figurative uses ("i hurt my husband's
+ * feelings", "i kill my wife with kindness") never fire.
+ */
+const INTENT_FRAMING_PHRASES = [
+  'want to', 'wanna', 'wanted to', 'wanting to',
+  'going to', 'gonna',
+  'plan to', 'planned to', 'planning to',
+  'intend to', 'intended to', 'intending to',
+  'need to', 'needed to',
+  'decide to', 'decided to', 'deciding to',
+  'threaten to', 'threatened to', 'threatening to',
+  'will', 'would',
+  'feel like', 'felt like',
+  'thinking about', 'thinking of', 'think about', 'thought about',
+  'dream about', 'dreaming about', 'dream of', 'dreaming of',
+  'fantasize about', 'fantasizing about',
+  'considering',
+  // Third-person intent (a member reporting someone else's threat).
+  'wants to', 'plans to', 'intends to', 'needs to', 'threatens to',
+];
+
+const INTENT_FRAMING_RE = `(?:${INTENT_FRAMING_PHRASES.join('|')})`;
+
+/**
+ * Intent-framed named-target pattern: a framing phrase, the harm verb (base or
+ * gerund), an optional possessive, and an explicit target noun, word-bounded.
+ */
 function namedTargetViolencePattern(intent: 'hurt' | 'kill'): RegExp {
-  return new RegExp(`${intent} (my |our )?${VIOLENCE_TARGET_NOUNS}\\b`, 'i');
+  const verb = `${intent}(?:ing)?`;
+  return new RegExp(`\\b${INTENT_FRAMING_RE} ${verb} (my |our )?${VIOLENCE_TARGET_NOUNS}\\b`, 'i');
 }
 
 const CRITICAL_VIOLENCE_PATTERNS = [
@@ -73,10 +123,10 @@ const CRITICAL_VIOLENCE_PATTERNS = [
   /violent revenge/i,
   /plan to hurt/i,
   /plan to kill/i,
-  // Named-target violence (CC-09 cycle-3 F-5).
+  // Named-target violence (CC-09 cycle-3 F-5 + F-7 intent-framing).
   namedTargetViolencePattern('hurt'),
   namedTargetViolencePattern('kill'),
-  new RegExp(`make (my |our )?${VIOLENCE_TARGET_NOUNS} suffer`, 'i'),
+  new RegExp(`\\b${INTENT_FRAMING_RE} make(?:ing)? (my |our )?${VIOLENCE_TARGET_NOUNS} suffer`, 'i'),
   new RegExp(`how do i (hurt|kill) (my |our )?${VIOLENCE_TARGET_NOUNS}\\b`, 'i'),
 ];
 
