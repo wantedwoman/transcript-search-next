@@ -10,6 +10,13 @@ import { checkAndTriggerPatternDetection } from '@/lib/pattern-detection/analyze
 import { matchCourse } from '@/lib/course-mapper/match-course';
 import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 import { saveVaultEntry } from '@/lib/vault/vault-engine';
+import { getWelcomeMessage } from '@/lib/first-engagement/sequence';
+import {
+  isHarmRiskQuery,
+  findMatchedHarmPattern,
+  classifyHarmSeverity,
+  handleHarmAlert,
+} from '@/lib/harm/alert-team';
 
 interface ChatMessage {
   id: string;
@@ -40,40 +47,12 @@ const SYSTEM_EXTRACTION_PATTERNS = [
   /tokens?/i,
 ];
 
-const HARM_PATTERNS = [
-  /kill myself/i,
-  /want to die/i,
-  /end my life/i,
-  /hurt myself/i,
-  /self[- ]harm/i,
-  /suicid(e|al)/i,
-  /overdose/i,
-  /cut myself/i,
-  /how do i hurt myself/i,
-  /how do i kill myself/i,
-  /hurt (him|her|them|someone)/i,
-  /kill (him|her|them|someone)/i,
-  /how do i hurt (him|her|them|someone)/i,
-  /make (him|her|them|someone) suffer/i,
-  /violent revenge/i,
-  /plan to hurt/i,
-  /plan to kill/i,
-];
-
 function isSystemExtractionQuery(query: string): boolean {
   return SYSTEM_EXTRACTION_PATTERNS.some((pattern) => pattern.test(query));
 }
 
-function isHarmRiskQuery(query: string): boolean {
-  return HARM_PATTERNS.some((pattern) => pattern.test(query));
-}
-
 function protectedReply() {
   return "I focus on giving you the best guidance I can. I don't get into how I'm built, but I've got you.";
-}
-
-function harmSafetyReply() {
-  return "I'm really glad you said something. I hear how heavy this is right now.\n\nI can't help with anything that could put you or someone else in danger, but I do want to make sure you're supported.\n\nPlease reach out to a licensed mental health professional or someone you trust as soon as possible. If you're in immediate danger or feel like you might act on this, call 911 right now.\n\nYou don't have to carry this alone.";
 }
 
 export async function POST(request: Request) {
@@ -107,17 +86,35 @@ export async function POST(request: Request) {
 
     const cleanQuery = query.trim();
 
-    if (isSystemExtractionQuery(cleanQuery)) {
+    // CC-09 fail-closed safety: imminent harm must ALWAYS get the 988 safety
+    // reply + harm alert, regardless of how it is phrased. Evaluate harm FIRST
+    // so that harm messages that also look like system-extraction attempts are
+    // still routed to the safety path (harm takes precedence over the
+    // system-extraction guard).
+    if (isHarmRiskQuery(cleanQuery)) {
+      logger.warn('HIGH RISK harm-related message detected');
+
+      // CC-09: alert the team + write a harm_alerts row. Never blocks the reply.
+      const user = await getAuthenticatedUser();
+      const matchedPattern = findMatchedHarmPattern(cleanQuery) || 'unknown';
+      const severity = classifyHarmSeverity(cleanQuery);
+      const { reply } = await handleHarmAlert(
+        user?.id || '',
+        cleanQuery,
+        matchedPattern,
+        severity,
+        user?.email
+      );
+
       return NextResponse.json({
-        answer: protectedReply(),
+        answer: reply,
         sources: [],
       });
     }
 
-    if (isHarmRiskQuery(cleanQuery)) {
-      logger.warn('HIGH RISK harm-related message detected');
+    if (isSystemExtractionQuery(cleanQuery)) {
       return NextResponse.json({
-        answer: harmSafetyReply(),
+        answer: protectedReply(),
         sources: [],
       });
     }
@@ -221,30 +218,30 @@ export async function GET(request: Request) {
     }
     
     // Get all conversations for this user (latest first)
-    const { data: conversations } = await supabase
+    let { data: conversations } = await supabase
       .from('conversations')
       .select('id, title, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
-      
+
     // Load ALL messages from ALL conversations and merge chronologically
     let messages: ChatMessage[] = [];
     let latestConversation = null;
-    
+
     if (conversations && conversations.length > 0) {
       latestConversation = conversations[0];
-      
+
       // Get all conversation IDs
       const allConvIds = conversations.map(c => c.id);
-      
+
       // Fetch all messages from all conversations at once
       const { data: allMessages } = await supabase
         .from('conversation_messages')
         .select('*')
         .in('conversation_id', allConvIds)
         .order('created_at', { ascending: true });
-        
+
       messages = (allMessages || []).map(m => ({
         id: m.id,
         content: m.content,
@@ -252,7 +249,54 @@ export async function GET(request: Request) {
         timestamp: new Date(m.created_at),
       }));
     }
-    
+
+    // Fresh member with zero conversations — fire the T0 welcome on first chat load.
+    // Gated to ACTIVE members only (CC-13 F-4): pending/revoked/non-active members
+    // must never receive the welcome or have a conversation auto-created. Middleware
+    // only blocks revoked + GHL-cancelled sessions, so the route re-checks the
+    // source-of-truth status before firing. On any lookup failure or non-active
+    // status, degrade to the current no-welcome behavior (empty conversation list)
+    // — never a 500.
+    if (!conversations || conversations.length === 0) {
+      let isActiveMember = false;
+      try {
+        const { data: profile, error: profileError } = await createServiceRoleClient()
+          .from('user_profiles')
+          .select('status')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (profileError) {
+          logger.error('T0 welcome gate: user_profiles lookup failed', profileError);
+        } else if (profile && profile.status === 'active') {
+          isActiveMember = true;
+        }
+      } catch (err) {
+        logger.error('T0 welcome gate: user_profiles lookup threw', err);
+      }
+
+      if (isActiveMember) {
+        try {
+          const welcome = await getWelcomeMessage(user.id);
+          if (welcome.conversationId) {
+            conversations = [{
+              id: welcome.conversationId,
+              title: null,
+              created_at: new Date().toISOString(),
+            }];
+            latestConversation = conversations[0];
+            messages = [{
+              id: `welcome-${welcome.conversationId}`,
+              content: welcome.content,
+              isUser: false,
+              timestamp: new Date(),
+            }];
+          }
+        } catch (err) {
+          logger.error('Failed to fire T0 welcome on first chat load', err);
+        }
+      }
+    }
+
     return NextResponse.json({
       conversations: conversations || [],
       activeConversationId: latestConversation?.id || null,
