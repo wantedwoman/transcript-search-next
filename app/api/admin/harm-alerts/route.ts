@@ -9,7 +9,7 @@ type HarmAlertRow = {
   user_id: string;
   message_snippet: string;
   matched_pattern: string;
-  severity: 'high' | 'critical';
+  severity: 'critical';
   acknowledged: boolean;
   created_at: string;
 };

@@ -9,14 +9,13 @@ type HarmAlert = {
   email: string;
   messageSnippet: string;
   matchedPattern: string;
-  severity: 'high' | 'critical';
+  severity: 'critical';
   acknowledged: boolean;
   createdAt: string;
 };
 
 const severityBadge = {
   critical: 'bg-red-500/15 text-red-300 border-red-500/30',
-  high: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
 };
 
 export default function AdminHarmAlertsPage() {
