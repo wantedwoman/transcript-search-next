@@ -17,7 +17,8 @@ import {
  * Create a new reminder. Max 1 active reminder per user.
  * Body: {
  *   topic: string,
- *   cadence?: 'daily' | 'weekly' | 'monthly',   // maps to a remindAt Date
+ *   cadence?: 'daily' | 'weekly' | 'monthly',   // persisted on the row; drives
+ *                                               // recurrence AND first remindAt
  *   messageStyle?: 'gentle' | 'direct' | 'hype', // persisted on the row
  *   remindAtDays?: number (1-30, legacy, default 7)
  * }
@@ -47,8 +48,16 @@ export async function POST(request: Request) {
         ? (messageStyle as MessageStyle)
         : 'gentle';
 
-    // Cadence maps to a remindAt Date (daily/weekly/monthly). Falls back to
-    // the legacy numeric remindAtDays field, then to 7 days.
+    // Cadence maps to a remindAt Date (daily/weekly/monthly) AND is persisted
+    // on the row so the reminder reschedules a next occurrence (recurring,
+    // not one-shot). Defaults to 'weekly' for legacy clients that omit it.
+    let cadenceValue: ReminderCadence = 'weekly';
+    if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
+      cadenceValue = cadence as ReminderCadence;
+    }
+
+    // The first remindAt date: cadence days out, falling back to the legacy
+    // numeric remindAtDays field, then to 7 days.
     let days: number | null = null;
     if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
       days = REMINDER_CADENCE_DAYS[cadence as ReminderCadence];
@@ -60,7 +69,7 @@ export async function POST(request: Request) {
     const remindAt = new Date();
     remindAt.setDate(remindAt.getDate() + finalDays);
 
-    const result = await createReminder(user.id, topic.trim(), remindAt, style);
+    const result = await createReminder(user.id, topic.trim(), remindAt, style, cadenceValue);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 409 });
