@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient, getAuthenticatedUser } from '@/lib/supabase/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 import Link from 'next/link';
 
 export const metadata = {
@@ -13,8 +14,7 @@ export default async function AdminPage() {
   }
 
   // Admin check — only specific emails can access
-  const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-  if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+  if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
     redirect('/chat');
   }
 
