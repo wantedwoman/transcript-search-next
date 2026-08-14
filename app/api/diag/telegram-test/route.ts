@@ -11,7 +11,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const out: Record<string, unknown> = {
+  const out: {
+    env: {
+      tokenSet: boolean;
+      chatId: string;
+      cwd: string;
+      node: string;
+      hasBlob: boolean;
+      hasFormData: boolean;
+      tmpWritable: unknown;
+    };
+    carousel?: { id: string; title: string; slides: number };
+    step?: string;
+    error?: unknown;
+    render?: { ok: boolean; error: string | null; pngFiles: string[] };
+    delivery?: { ok: boolean; reason: string | null; photoMessageIds?: number[]; captionMessageId?: number };
+  } = {
     env: {
       tokenSet: !!process.env.TELEGRAM_BOT_TOKEN,
       chatId: process.env.TELEGRAM_CHAT_ID || '(default 6949338820)',
@@ -19,7 +34,7 @@ export async function POST(request: Request) {
       node: process.version,
       hasBlob: typeof Blob !== 'undefined',
       hasFormData: typeof FormData !== 'undefined',
-      tmpWritable: null as unknown,
+      tmpWritable: null,
     },
   };
 
@@ -55,10 +70,19 @@ export async function POST(request: Request) {
 
     out.carousel = { id: data.id, title: data.title, slides: data.slides?.length ?? 0 };
 
-    const carousel = {
+    const carousel: {
+      title: string;
+      topic: string;
+      slides: Array<{ slide_number: number; headline: string; body: string; type: 'hook' | 'insight' | 'tip' | 'cta' }>;
+    } = {
       title: data.title,
       topic: data.topic,
-      slides: data.slides as Array<{ slide_number: number; headline: string; body: string; type: string }>,
+      slides: data.slides as Array<{
+        slide_number: number;
+        headline: string;
+        body: string;
+        type: 'hook' | 'insight' | 'tip' | 'cta';
+      }>,
     };
 
     // Render to /tmp
