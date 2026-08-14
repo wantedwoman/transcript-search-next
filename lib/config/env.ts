@@ -13,6 +13,10 @@ const envSchema = z.object({
   GHL_LOCATION_ID: z.string().min(1).optional(),
   GHL_WEBHOOK_SECRET: z.string().optional().default(''),
   CRON_SECRET: z.string().optional().default(''),
+  // CC-15 · Google Calendar OAuth (events scope only). Optional so the app
+  // builds and runs without them — calendar is additive, never a dependency.
+  GOOGLE_CAL_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CAL_CLIENT_SECRET: z.string().min(1).optional(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
