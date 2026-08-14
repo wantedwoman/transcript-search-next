@@ -733,9 +733,27 @@ export async function renderCarouselImages(
   return slideFiles;
 }
 
+export interface CarouselRenderResult {
+  htmlFiles: string[];
+  pngFiles: string[];
+  /**
+   * Present when PNG rendering failed entirely or partway through. A result
+   * with `error` set must be treated as a broken/incomplete carousel — the
+   * file counts alone cannot distinguish a failed render from a legitimately
+   * empty carousel. `undefined` on success and on a 0-slide input.
+   */
+  error?: { message: string; cause?: unknown };
+}
+
 /**
  * Render all slides of a carousel to real 1080x1080 PNG files on disk using
  * @vercel/og (satori + resvg), in addition to the HTML preview files.
+ *
+ * Render failures are NOT swallowed: if any slide fails to render (e.g. a
+ * missing font), the returned result carries an `error` marker so callers can
+ * surface the failure instead of silently shipping a broken/empty carousel.
+ * The PNGs written before the failure are still returned best-effort. A
+ * genuinely empty carousel (0 slides) returns cleanly with no `error`.
  *
  * Note: on serverless platforms the filesystem is ephemeral, so these written
  * files are best-effort (useful for local generation/testing). The admin
@@ -747,7 +765,7 @@ export async function renderCarouselImages(
 export async function renderCarouselPNGs(
   carousel: CarouselData,
   outputDir?: string
-): Promise<{ htmlFiles: string[]; pngFiles: string[] }> {
+): Promise<CarouselRenderResult> {
   // Always generate the HTML preview files too.
   const htmlFiles = await renderCarouselImages(carousel, outputDir);
 
@@ -772,6 +790,18 @@ export async function renderCarouselPNGs(
     logger.info(`Rendered ${pngFiles.length} carousel PNGs for "${carousel.title}"`);
   } catch (error) {
     logger.error(`Failed to render carousel PNGs for "${carousel.title}"`, error);
+
+    // Surface the failure to callers. `pngFiles` may contain the slides that
+    // rendered before the error, so keep them, but the error marker makes a
+    // partial/complete render failure distinguishable from an empty carousel.
+    return {
+      htmlFiles,
+      pngFiles,
+      error: {
+        message: error instanceof Error ? error.message : String(error),
+        cause: error,
+      },
+    };
   }
 
   return { htmlFiles, pngFiles };
