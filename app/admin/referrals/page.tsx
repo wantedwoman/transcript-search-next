@@ -10,6 +10,7 @@ type Referral = {
   status: 'pending' | 'released' | 'paid';
   createdAt: string;
   releasedAt: string | null;
+  credit: number | null;
 };
 
 const statusBadge = (status: string) => {
@@ -161,6 +162,7 @@ export default function AdminReferralsPage() {
                     <th className="text-left px-6 py-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Status</th>
                     <th className="text-left px-6 py-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Created</th>
                     <th className="text-left px-6 py-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Released</th>
+                    <th className="text-left px-6 py-4 text-xs font-semibold text-white/50 uppercase tracking-wider">Credit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,6 +184,9 @@ export default function AdminReferralsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-white/60">
                         {r.releasedAt ? new Date(r.releasedAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-white/60">
+                        {r.credit != null ? `$${Number(r.credit).toFixed(2)}` : '—'}
                       </td>
                     </tr>
                   ))}

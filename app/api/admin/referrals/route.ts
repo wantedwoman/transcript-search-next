@@ -10,6 +10,7 @@ type ReferralRow = {
   status: 'pending' | 'released' | 'paid';
   created_at: string;
   released_at: string | null;
+  credit_amount: number | null;
 };
 
 type ProfileRow = {
@@ -32,7 +33,7 @@ export async function GET() {
     // Fetch all referrals (admin scope — service role bypasses RLS)
     const { data: referrals, error } = await supabase
       .from('referrals')
-      .select('id, referrer_user_id, referred_email, status, created_at, released_at')
+      .select('id, referrer_user_id, referred_email, status, created_at, released_at, credit_amount')
       .order('created_at', { ascending: false })
       .limit(500);
 
@@ -69,6 +70,8 @@ export async function GET() {
       status: r.status,
       createdAt: r.created_at,
       releasedAt: r.released_at,
+      // Nullable credit — pass through the stored value as-is, never fabricate.
+      credit: r.credit_amount ?? null,
     }));
 
     return NextResponse.json({ referrals: enriched });
