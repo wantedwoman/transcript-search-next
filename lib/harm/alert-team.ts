@@ -14,16 +14,22 @@ export type HarmSeverity = 'high' | 'critical';
 /**
  * Patterns indicating the member is at immediate risk of self-harm / suicide.
  * Matching any of these → severity 'critical'.
+ *
+ * Progressive verb forms (`cutting|hurting|killing myself`) are included so
+ * ongoing harm ("I keep cutting myself") is caught, not just the simple form.
  */
 const CRITICAL_SELF_HARM_PATTERNS = [
   /kill myself/i,
   /want to die/i,
   /end my life/i,
   /hurt myself/i,
+  /cut myself/i,
+  /cutting myself/i,
+  /hurting myself/i,
+  /killing myself/i,
   /self[- ]harm/i,
   /suicid(e|al)/i,
   /overdose/i,
-  /cut myself/i,
   /how do i hurt myself/i,
   /how do i kill myself/i,
 ];
@@ -42,20 +48,132 @@ const CRITICAL_VIOLENCE_PATTERNS = [
   /plan to kill/i,
 ];
 
-/** Full harm trigger set (kept in sync with the chat route's original list). */
+/**
+ * Full harm trigger set (self-harm + violence).
+ * NOTE — every detection helper below runs matches through the negation-aware
+ * `patternMatches` guard, so these raw patterns are never tested directly.
+ */
 export const HARM_PATTERNS = [
   ...CRITICAL_SELF_HARM_PATTERNS,
   ...CRITICAL_VIOLENCE_PATTERNS,
 ];
 
-export function isHarmRiskQuery(query: string): boolean {
-  return HARM_PATTERNS.some((pattern) => pattern.test(query));
+/**
+ * Negation-aware guard (CC-09 precision fix).
+ *
+ * A bare substring match like `/want to die/` also fires inside a clear
+ * negation ("I dont want to die, I just feel lost") and `/hurt (him|...)`
+ * fires inside "I dont want to hurt him, I love him". We suppress a match only
+ * when the nearest preceding negation clearly targets the self-harm clause:
+ * every word between the negation and the match must be a benign framing word
+ * ("want to", "going to", "ever", ...). Anything else — a second clause, "stop
+ * cutting myself", "know why I want to die" — leaves the alert firing, so real
+ * risk is never silently dropped.
+ *
+ * Ambivalent nested desire is preserved: "sometimes I don't want to want to
+ * die" still fires because the clause contains two "want to" framings, meaning
+ * the negation targets the outer desire, not the suicidal thought itself.
+ */
+const NEGATION_RE =
+  /\b(?:not|n't|never|no longer|no|won't|wont|wouldn't|wouldnt|shouldn't|shouldnt|can't|cant|cannot|don't|dont|doesn't|doesnt|didn't|didnt|haven't|havent|hasn't|hasnt|isn't|isnt|wasn't|wasnt|weren't|werent|ain't|aint)\b/i;
+
+const BENIGN_FRAMING_WORDS = new Set([
+  'to',
+  'want',
+  'wanted',
+  'wanting',
+  'go',
+  'going',
+  'will',
+  'would',
+  'ever',
+  'really',
+  'just',
+  'even',
+  'simply',
+  'actually',
+  'truly',
+  'possibly',
+  'probably',
+  'maybe',
+  'at',
+  'all',
+  'anymore',
+  'again',
+  'longer',
+  'right',
+  'now',
+  'today',
+  'tonight',
+]);
+
+const NEGATION_WINDOW_CHARS = 120;
+
+/**
+ * True when the match at `matchIndex` sits inside a clearly-negated clause.
+ *
+ * Two windows are inspected:
+ *  - words strictly between the negation and the match START must all be benign
+ *    framing words ("want to", "going to", ...), else the negation does not
+ *    clearly target this clause and the alert keeps firing;
+ *  - desire framings are counted through the match END, so nested
+ *    "I don't want to want to die" (whose `/want to die/` match begins at the
+ *    SECOND "want") is detected as ambivalent genuine risk and kept firing.
+ */
+function isNegatedMatch(query: string, matchIndex: number, matchText: string): boolean {
+  const matchEnd = matchIndex + matchText.length;
+  const windowStart = Math.max(0, matchIndex - NEGATION_WINDOW_CHARS);
+
+  const tokenize = (text: string) => text.toLowerCase().split(/[^a-z']+/).filter(Boolean);
+
+  const beforeMatch = tokenize(query.slice(windowStart, matchIndex));
+
+  let negIdx = -1;
+  for (let i = 0; i < beforeMatch.length; i++) {
+    if (NEGATION_RE.test(beforeMatch[i])) negIdx = i;
+  }
+  if (negIdx === -1) return false;
+
+  // Framing check — every word between the negation and the match must be
+  // benign framing (e.g. "don't want to die", "not going to hurt myself").
+  const between = beforeMatch.slice(negIdx + 1);
+  if (between.some((word) => !BENIGN_FRAMING_WORDS.has(word))) return false;
+
+  // Nesting check — count "want"-framings through the end of the matched
+  // phrase. 0 or 1 → direct negation; 2+ ("want to want to die") → ambivalent.
+  const throughMatch = tokenize(query.slice(windowStart, matchEnd)).slice(negIdx + 1);
+  const wants = throughMatch.filter(
+    (w) => w === 'want' || w === 'wanted' || w === 'wanting'
+  ).length;
+
+  return wants < 2;
 }
 
-/** Returns the source string of the first pattern that matched, or null. */
+/**
+ * True when `pattern` matches `query` at least once OUTSIDE a negated clause.
+ * All pattern matching goes through this helper so the negation guard applies
+ * uniformly to self-harm and violence patterns.
+ */
+function patternMatches(query: string, pattern: RegExp): boolean {
+  const flags = pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g';
+  const re = new RegExp(pattern.source, flags);
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(query)) !== null) {
+    if (!isNegatedMatch(query, match.index, match[0])) return true;
+    // Defensive zero-width guard (none of the patterns are zero-width today).
+    if (re.lastIndex === match.index) re.lastIndex += 1;
+  }
+  return false;
+}
+
+export function isHarmRiskQuery(query: string): boolean {
+  return HARM_PATTERNS.some((pattern) => patternMatches(query, pattern));
+}
+
+/** Returns the source string of the first (non-negated) pattern that matched, or null. */
 export function findMatchedHarmPattern(query: string): string | null {
   for (const pattern of HARM_PATTERNS) {
-    if (pattern.test(query)) return pattern.source;
+    if (patternMatches(query, pattern)) return pattern.source;
   }
   return null;
 }
@@ -68,8 +186,8 @@ export function findMatchedHarmPattern(query: string): string | null {
  */
 export function classifyHarmSeverity(query: string): HarmSeverity {
   const isCritical =
-    CRITICAL_SELF_HARM_PATTERNS.some((pattern) => pattern.test(query)) ||
-    CRITICAL_VIOLENCE_PATTERNS.some((pattern) => pattern.test(query));
+    CRITICAL_SELF_HARM_PATTERNS.some((pattern) => patternMatches(query, pattern)) ||
+    CRITICAL_VIOLENCE_PATTERNS.some((pattern) => patternMatches(query, pattern));
   return isCritical ? 'critical' : 'high';
 }
 
