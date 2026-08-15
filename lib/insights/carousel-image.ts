@@ -433,15 +433,15 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         },
       },
       [
-        createElement('img', {
-          src: logoSrc || '',
+        logoSrc ? createElement('img', {
+          src: logoSrc,
           style: {
             width: 40,
             height: 40,
             objectFit: 'contain',
             opacity: 0.9,
           },
-        }),
+        }) : null,
         createElement(
           'span',
           {
