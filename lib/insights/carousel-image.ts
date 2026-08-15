@@ -90,20 +90,21 @@ function slugify(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// Fonts are bundled under public/fonts (TTF, static instances of Manrope,
-// each well under Satori's 500KB per-font limit) so Satori can embed real
-// glyphs instead of falling back to tofu/missing-glyph boxes.
-let fontsPromise: Promise<{ regular: Buffer; bold: Buffer }> | null = null;
+// Fonts are bundled under public/fonts (TTF, static instances of Manrope +
+// Great Vibes script, each well under Satori's 500KB per-font limit) so Satori
+// can embed real glyphs instead of falling back to tofu/missing-glyph boxes.
+let fontsPromise: Promise<{ regular: Buffer; bold: Buffer; script: Buffer }> | null = null;
 
-async function loadFonts(): Promise<{ regular: Buffer; bold: Buffer }> {
+async function loadFonts(): Promise<{ regular: Buffer; bold: Buffer; script: Buffer }> {
   if (!fontsPromise) {
     fontsPromise = (async () => {
       const fontsDir = path.join(process.cwd(), 'public', 'fonts');
-      const [regular, bold] = await Promise.all([
+      const [regular, bold, script] = await Promise.all([
         readFile(path.join(fontsDir, 'Manrope-Regular.ttf')),
         readFile(path.join(fontsDir, 'Manrope-Bold.ttf')),
+        readFile(path.join(fontsDir, 'GreatVibes-Regular.ttf')),
       ]);
-      return { regular, bold };
+      return { regular, bold, script };
     })();
   }
   return fontsPromise;
@@ -127,20 +128,22 @@ interface CarouselFontMetrics {
   advanceOf: (char: string) => number;
 }
 
-let fontMetricsCache: { regular: CarouselFontMetrics; bold: CarouselFontMetrics } | null = null;
+let fontMetricsCache: { regular: CarouselFontMetrics; bold: CarouselFontMetrics; script: CarouselFontMetrics } | null = null;
 
 export 
 // Logo URL - served from Next.js public folder
 const LOGO_URL = '/logo.png';
 
-async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer }): Promise<{
+async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer; script: Buffer }): Promise<{
   regular: CarouselFontMetrics;
   bold: CarouselFontMetrics;
+  script: CarouselFontMetrics;
 }> {
   if (!fontMetricsCache) {
     fontMetricsCache = {
       regular: parseFontMetrics(fonts.regular),
       bold: parseFontMetrics(fonts.bold),
+      script: parseFontMetrics(fonts.script),
     };
   }
   return fontMetricsCache;
@@ -397,9 +400,23 @@ export function fitCarouselText(
  * Every text-bearing node is an explicit flex container, per Satori's
  * layout constraints (flexbox only, no implicit block layout).
  */
-function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit, logoSrc: string | null = null) {
+function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit, logoSrc: string | null = null, fontSet: { regular: Buffer; bold: Buffer; script: Buffer } | null = null) {
   const config = SLIDE_CONFIGS[slide.type] || SLIDE_CONFIGS.tip;
   const slideNumber = slide.slide_number || slideIndex + 1;
+  const isCover = slide.type === 'hook';
+
+  // Decorative elements for cover slides (hearts, sparkles)
+  const decorativeElements = isCover ? [
+    createElement('span', {
+      style: { position: 'absolute', top: 120, left: 100, fontSize: 32, opacity: 0.6, transform: 'rotate(-15deg)' },
+    }, '💕'),
+    createElement('span', {
+      style: { position: 'absolute', top: 140, right: 120, fontSize: 28, opacity: 0.5, transform: 'rotate(10deg)' },
+    }, '✨'),
+    createElement('span', {
+      style: { position: 'absolute', top: 200, left: 80, fontSize: 24, opacity: 0.4, transform: 'rotate(5deg)' },
+    }, '💖'),
+  ] : [];
 
   return createElement(
     'div',
@@ -419,7 +436,7 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         overflow: 'hidden',
       },
     },
-    // Top-left branded header with logo
+    // Logo always present — top-left area
     createElement(
       'div',
       {
@@ -430,34 +447,37 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           display: 'flex',
           alignItems: 'center',
           gap: 12,
+          zIndex: 10,
         },
       },
       [
         logoSrc ? createElement('img', {
           src: logoSrc,
           style: {
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             objectFit: 'contain',
-            opacity: 0.9,
+            opacity: 0.95,
           },
         }) : null,
         createElement(
           'span',
           {
             style: {
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: 700,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
               color: config.accent,
-              opacity: 0.85,
+              opacity: 0.9,
             },
           },
           'WANTED Woman'
         ),
       ]
     ),
+    // Decorative elements (cover only)
+    ...decorativeElements,
     // Subtle bottom-right badge / watermark area
     createElement(
       'div',
@@ -500,8 +520,8 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         left: -80,
       },
     }),
-    // Slide type badge — pill, accent border/bg
-    createElement(
+    // Slide type badge — pill, accent border/bg (only on non-cover slides)
+    !isCover ? createElement(
       'div',
       {
         style: {
@@ -521,25 +541,36 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         },
       },
       slide.type.toUpperCase()
-    ),
-    // Headline
+    ) : null,
+    // Pink accent line under badge (content slides only)
+    !isCover ? createElement('div', {
+      style: {
+        width: 60,
+        height: 3,
+        background: config.accent,
+        borderRadius: 2,
+        marginBottom: 32,
+      },
+    }) : null,
+    // Headline — use script font for cover slides
     createElement(
       'div',
       {
         style: {
           display: '-webkit-box',
-          fontSize: fit.headSize,
-          fontWeight: 700,
+          fontSize: isCover ? fit.headSize + 8 : fit.headSize,
+          fontWeight: isCover ? 400 : 700,
+          fontFamily: isCover && fontSet ? 'Great Vibes' : 'Manrope',
           lineHeight: HEADLINE_LINE_HEIGHT,
           textAlign: 'center',
-          marginBottom: 32,
+          marginBottom: isCover ? 24 : 32,
           maxWidth: HEADLINE_WIDTH,
-          letterSpacing: '-0.02em',
+          letterSpacing: isCover ? '0em' : '-0.02em',
           wordBreak: 'break-word',
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          WebkitLineClamp: fit.headClamp,
+          WebkitLineClamp: isCover ? Math.max(2, fit.headClamp - 1) : fit.headClamp,
           color: config.textColor,
         },
       },
@@ -555,7 +586,7 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           fontWeight: 400,
           lineHeight: BODY_LINE_HEIGHT,
           textAlign: 'center',
-          opacity: 0.8,
+          opacity: 0.85,
           maxWidth: BODY_WIDTH,
           wordBreak: 'break-word',
           WebkitBoxOrient: 'vertical',
@@ -567,7 +598,26 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
       },
       slide.body
     ),
-    // Bottom-left CTA / brand line (on Cta slide this becomes stronger)
+    // Swipe CTA for cover slides
+    isCover ? createElement(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          bottom: 100,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 16,
+          fontWeight: 600,
+          letterSpacing: '0.05em',
+          color: config.accent,
+          opacity: 0.8,
+        },
+      },
+      ['Swipe for more →']
+    ) : null,
+    // Footer — Instagram-style handle for content slides, coachcass for cover
     createElement(
       'div',
       {
@@ -575,15 +625,15 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           position: 'absolute',
           bottom: 40,
           left: 60,
-          fontSize: slide.type === 'cta' ? 18 : 16,
-          fontWeight: slide.type === 'cta' ? 700 : 600,
+          fontSize: 16,
+          fontWeight: 600,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
           color: config.accent,
-          opacity: slide.type === 'cta' ? 1 : 0.6,
+          opacity: 0.7,
         },
       },
-      slide.type === 'cta' ? 'Link in bio' : 'coachcass.com'
+      isCover ? 'coachcass.com' : '@wantedwoman'
     )
   );
 }
@@ -597,7 +647,7 @@ export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number,
   const fonts = await loadFonts();
   const metrics = await getCarouselFontMetrics(fonts);
   const fit = fitCarouselText(slide.headline, slide.body, metrics.bold, metrics.regular);
-  const element = buildSlideElement(slide, slideIndex, fit, logoSrc);
+  const element = buildSlideElement(slide, slideIndex, fit, logoSrc, fonts);
 
   const imageResponse = new ImageResponse(element, {
     width: SLIDE_WIDTH,
@@ -605,6 +655,7 @@ export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number,
     fonts: [
       { name: 'Manrope', data: fonts.regular, weight: 400, style: 'normal' },
       { name: 'Manrope', data: fonts.bold, weight: 700, style: 'normal' },
+      { name: 'Great Vibes', data: fonts.script, weight: 400, style: 'normal' },
     ],
   });
 
