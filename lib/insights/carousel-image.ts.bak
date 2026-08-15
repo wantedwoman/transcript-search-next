@@ -129,21 +129,7 @@ interface CarouselFontMetrics {
 
 let fontMetricsCache: { regular: CarouselFontMetrics; bold: CarouselFontMetrics } | null = null;
 
-export 
-// Load the brand logo as base64 for embedding in slides
-async function loadLogo(): Promise<string | null> {
-  try {
-    const { readFile } = await import('fs/promises');
-    const { join } = await import('path');
-    const logoPath = join(process.cwd(), 'public', 'logo.png');
-    const buffer = await readFile(logoPath);
-    return `data:image/png;base64,${buffer.toString('base64')}`;
-  } catch {
-    return null;
-  }
-}
-
-async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer }): Promise<{
+export async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer }): Promise<{
   regular: CarouselFontMetrics;
   bold: CarouselFontMetrics;
 }> {
@@ -407,7 +393,7 @@ export function fitCarouselText(
  * Every text-bearing node is an explicit flex container, per Satori's
  * layout constraints (flexbox only, no implicit block layout).
  */
-function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit, logoSrc: string | null = null) {
+function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit) {
   const config = SLIDE_CONFIGS[slide.type] || SLIDE_CONFIGS.tip;
   const slideNumber = slide.slide_number || slideIndex + 1;
 
@@ -429,44 +415,23 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         overflow: 'hidden',
       },
     },
-    // Top-left branded header with logo
+    // Top-left branded header: "WANTED Woman" in small caps accent
     createElement(
       'div',
       {
         style: {
           position: 'absolute',
-          top: 36,
+          top: 48,
           left: 60,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
+          fontSize: 20,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: config.accent,
+          opacity: 0.85,
         },
       },
-      [
-        createElement('img', {
-          src: logoSrc || '',
-          style: {
-            width: 40,
-            height: 40,
-            objectFit: 'contain',
-            opacity: 0.9,
-          },
-        }),
-        createElement(
-          'span',
-          {
-            style: {
-              fontSize: 18,
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              color: config.accent,
-              opacity: 0.85,
-            },
-          },
-          'WANTED Woman'
-        ),
-      ]
+      'WANTED Woman'
     ),
     // Subtle bottom-right badge / watermark area
     createElement(
@@ -603,11 +568,11 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
  * @vercel/og (Satori + resvg). This is safe to call from a Node-runtime
  * route handler on every request (no filesystem writes required).
  */
-export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number, logoSrc?: string | null): Promise<Buffer> {
+export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number): Promise<Buffer> {
   const fonts = await loadFonts();
   const metrics = await getCarouselFontMetrics(fonts);
   const fit = fitCarouselText(slide.headline, slide.body, metrics.bold, metrics.regular);
-  const element = buildSlideElement(slide, slideIndex, fit, logoSrc);
+  const element = buildSlideElement(slide, slideIndex, fit);
 
   const imageResponse = new ImageResponse(element, {
     width: SLIDE_WIDTH,
