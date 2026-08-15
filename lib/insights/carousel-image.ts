@@ -130,18 +130,8 @@ interface CarouselFontMetrics {
 let fontMetricsCache: { regular: CarouselFontMetrics; bold: CarouselFontMetrics } | null = null;
 
 export 
-// Load the brand logo as base64 for embedding in slides
-async function loadLogo(): Promise<string | null> {
-  try {
-    const { readFile } = await import('fs/promises');
-    const { join } = await import('path');
-    const logoPath = join(process.cwd(), 'public', 'logo.png');
-    const buffer = await readFile(logoPath);
-    return `data:image/png;base64,${buffer.toString('base64')}`;
-  } catch {
-    return null;
-  }
-}
+// Logo URL - served from Next.js public folder
+const LOGO_URL = '/logo.png';
 
 async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer }): Promise<{
   regular: CarouselFontMetrics;
