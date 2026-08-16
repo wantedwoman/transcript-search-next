@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { logger } from '@/lib/utils/logger';
+import { createCalendarReminderEvent } from '@/lib/google-calendar/calendar-events';
 
 export type MessageStyle = 'gentle' | 'direct' | 'hype';
 
@@ -159,6 +160,13 @@ export async function createReminder(
   }
 
   logger.info(`Created reminder ${reminder.id} for user ${userId}, topic: "${topic}"`);
+
+  // Fire-and-forget: create a Google Calendar event if connected.
+  // Non-blocking — in-app reminders (CC-08) work regardless.
+  createCalendarReminderEvent({ userId, topic, remindAt }).catch((e) => {
+    logger.warn(`Failed to create calendar event for reminder ${reminder.id}`, e);
+  });
+
   return { reminder: reminder as UserReminder };
 }
 
