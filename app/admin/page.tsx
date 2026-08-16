@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient, getAuthenticatedUser } from '@/lib/supabase/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 import Link from 'next/link';
 
 export const metadata = {
@@ -12,15 +13,12 @@ export default async function AdminPage() {
     redirect('/');
   }
 
-  // Admin check — only specific emails can access
-  const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-  if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+  if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
     redirect('/chat');
   }
 
   const supabase = await createServerSupabaseClient();
 
-  // Get user stats
   const { count: totalUsers } = await supabase
     .from('user_profiles')
     .select('*', { count: 'exact', head: true });
@@ -42,7 +40,6 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#171117] text-white">
-      {/* Header */}
       <header className="border-b border-white/10 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -55,7 +52,6 @@ export default async function AdminPage() {
         </div>
       </header>
 
-      {/* Stats */}
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <div className="bg-white/5 rounded-xl p-6 border border-white/10">
@@ -76,7 +72,6 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Navigation Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link
             href="/admin/users"
@@ -130,13 +125,31 @@ export default async function AdminPage() {
             </p>
           </Link>
 
-          <div className="bg-white/5 rounded-xl p-8 border border-white/10 opacity-50">
+          <Link
+            href="/admin/referrals"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
             <div className="flex items-center gap-4 mb-3">
-              <span className="material-symbols-outlined text-3xl text-white/30">settings</span>
-              <h2 className="text-xl font-bold text-white/30">Webhook Events</h2>
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">redeem</span>
+              <h2 className="text-xl font-bold">Referral Activity</h2>
             </div>
-            <p className="text-white/30 text-sm">Coming soon — GHL webhook event log.</p>
-          </div>
+            <p className="text-white/60 text-sm">
+              Track who referred whom, commission status, and payouts.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/harm-alerts"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">warning</span>
+              <h2 className="text-xl font-bold">Harm Alerts</h2>
+            </div>
+            <p className="text-white/60 text-sm">
+              Review critical safety alerts and acknowledge them.
+            </p>
+          </Link>
         </div>
       </div>
     </div>
