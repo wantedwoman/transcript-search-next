@@ -245,8 +245,8 @@ export default function ProfilePage() {
             <div className="w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
               <span className="material-symbols-outlined text-2xl text-primary">person</span>
             </div>
-            <div>
-              <p className="text-lg font-body text-on-surface font-semibold">{userEmail}</p>
+            <div className="min-w-0">
+              <p className="text-lg font-body text-on-surface font-semibold break-all">{userEmail}</p>
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${userStatus === 'active' ? 'bg-tertiary shadow-[0_0_8px_#e9c349]' : 'bg-error'}`}></span>
                 <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/60">

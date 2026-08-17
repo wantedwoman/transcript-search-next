@@ -384,7 +384,7 @@ export default function SuzyChatWindow() {
                     <p style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 px-2">
-                    <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/70">
+                    <span className="text-[0.625rem] font-label font-semibold uppercase tracking-widest text-secondary/90">
                       {message.isUser ? 'You' : 'Coach Cass AI'} • {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       {!message.isUser && message.mood && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[0.5625rem] bg-white/10 border border-white/10">
