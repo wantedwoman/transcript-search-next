@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
 import { generateCarouselContent } from '@/lib/insights/carousel-generator';
@@ -12,8 +13,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-    if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+
+    if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -44,8 +45,8 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-    if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+
+    if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
