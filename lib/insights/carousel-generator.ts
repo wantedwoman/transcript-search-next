@@ -1,6 +1,8 @@
 import { createServiceRoleClient } from '../auth/auto-provision';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import os from 'os';
+import path from 'path';
 
 interface CarouselSlide {
   slide_number: number;
@@ -13,6 +15,19 @@ interface CarouselResult {
   title: string;
   topic: string;
   slides: CarouselSlide[];
+}
+
+export interface CarouselDeliveryResult {
+  title: string;
+  ok: boolean;
+  reason?: string;
+  photoMessageIds?: number[];
+  captionMessageId?: number;
+}
+
+export interface CarouselGenerationResult {
+  carousels: CarouselResult[];
+  deliveries: CarouselDeliveryResult[];
 }
 
 const CAROUSEL_PROMPT = `You are a social media content creator for WANTED Woman, a relationship coaching brand for professional Black women. Create a 5-slide Instagram carousel based on the provided insights.
@@ -39,7 +54,7 @@ Return JSON with exactly these fields:
 
 Return ONLY valid JSON, no markdown.`;
 
-export async function generateCarouselContent(): Promise<CarouselResult[]> {
+export async function generateCarouselContent(): Promise<CarouselGenerationResult> {
   try {
     const supabase = createServiceRoleClient();
 
@@ -52,7 +67,7 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
 
     if (error || !aggregates || aggregates.length === 0) {
       logger.info('No aggregate insights available for carousel generation');
-      return [];
+      return { carousels: [], deliveries: [] };
     }
 
     const insightsText = aggregates
@@ -76,6 +91,7 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
 
     // Generate 2 carousels
     const carousels: CarouselResult[] = [];
+    const deliveries: CarouselDeliveryResult[] = [];
 
     for (let i = 0; i < 2; i++) {
       const focus = i === 0 ? 'a trending topic' : 'a common pain point';
@@ -149,7 +165,10 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
       try {
         const { renderCarouselPNGs } = await import('./carousel-image');
         const { sendCarouselToTelegram } = await import('../delivery/telegram');
-        const rendered = await renderCarouselPNGs(carousel);
+        // Serverless filesystems are read-only except /tmp — process.cwd()
+        // (public/carousels) throws EROFS on Vercel. Render into /tmp so the
+        // PNGs can actually be written and then read back for delivery.
+        const rendered = await renderCarouselPNGs(carousel, path.join(os.tmpdir(), 'cc-carousels'));
         if (rendered.error) {
           logger.error(
             `Telegram delivery skipped for "${carousel.title}": PNG render failed`,
@@ -163,6 +182,13 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
           pngBuffers.push(await readFile(pngPath));
         }
         const result = await sendCarouselToTelegram(carousel, pngBuffers);
+        deliveries.push({
+          title: carousel.title,
+          ok: result.ok,
+          reason: result.reason,
+          photoMessageIds: result.photoMessageIds,
+          captionMessageId: result.captionMessageId,
+        });
         if (result.ok) {
           logger.info(
             `Carousel "${carousel.title}" (${carousel.slides.length} slides) delivered to Telegram`
@@ -174,13 +200,18 @@ export async function generateCarouselContent(): Promise<CarouselResult[]> {
         }
       } catch (deliveryErr) {
         logger.error(`Telegram delivery failed for "${carousel.title}"`, deliveryErr);
+        deliveries.push({
+          title: carousel.title,
+          ok: false,
+          reason: deliveryErr instanceof Error ? deliveryErr.message : String(deliveryErr),
+        });
       }
     }
 
     logger.info(`Generated ${carousels.length} carousel content items`);
-    return carousels;
+    return { carousels, deliveries };
   } catch (error) {
     logger.error('Carousel content generation failed', error);
-    return [];
+    return { carousels: [], deliveries: [] };
   }
 }

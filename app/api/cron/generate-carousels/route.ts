@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const carousels = await generateCarouselContent();
+    const { carousels, deliveries } = await generateCarouselContent();
 
     return NextResponse.json({
       message: `Generated ${carousels.length} carousel(s)`,
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
         topic: c.topic,
         slideCount: c.slides.length,
       })),
+      deliveries,
     });
   } catch (error) {
     console.error('Cron: carousel generation failed', error);
