@@ -17,8 +17,7 @@ import {
  * Create a new reminder. Max 1 active reminder per user.
  * Body: {
  *   topic: string,
- *   cadence?: 'daily' | 'weekly' | 'monthly',   // persisted on the row; drives
- *                                               // recurrence AND first remindAt
+ *   cadence?: 'daily' | 'weekly' | 'monthly',   // maps to a remindAt Date
  *   messageStyle?: 'gentle' | 'direct' | 'hype', // persisted on the row
  *   remindAtDays?: number (1-30, legacy, default 7)
  * }
@@ -48,28 +47,24 @@ export async function POST(request: Request) {
         ? (messageStyle as MessageStyle)
         : 'gentle';
 
-    // Cadence maps to a remindAt Date (daily/weekly/monthly) AND is persisted
-    // on the row so the reminder reschedules a next occurrence (recurring,
-    // not one-shot). Defaults to 'weekly' for legacy clients that omit it.
-    let cadenceValue: ReminderCadence = 'weekly';
-    if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
-      cadenceValue = cadence as ReminderCadence;
-    }
-
-    // The first remindAt date: cadence days out, falling back to the legacy
-    // numeric remindAtDays field, then to 7 days.
+    // Cadence maps to a remindAt Date (daily/weekly/monthly). Falls back to
+    // the legacy numeric remindAtDays field, then to 7 days.
     let days: number | null = null;
+    let finalCadence: ReminderCadence | undefined;
     if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
       days = REMINDER_CADENCE_DAYS[cadence as ReminderCadence];
+      finalCadence = cadence as ReminderCadence;
     } else if (typeof remindAtDays === 'number' && remindAtDays >= 1 && remindAtDays <= 30) {
       days = remindAtDays;
+      // Infer a cadence for the calendar event from the legacy day count.
+      finalCadence = remindAtDays <= 1 ? 'daily' : remindAtDays <= 7 ? 'weekly' : 'monthly';
     }
     const finalDays = days ?? 7;
 
     const remindAt = new Date();
     remindAt.setDate(remindAt.getDate() + finalDays);
 
-    const result = await createReminder(user.id, topic.trim(), remindAt, style, cadenceValue);
+    const result = await createReminder(user.id, topic.trim(), remindAt, style, finalCadence);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 409 });

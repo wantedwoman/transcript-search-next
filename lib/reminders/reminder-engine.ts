@@ -1,5 +1,9 @@
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { logger } from '@/lib/utils/logger';
+import {
+  deleteReminderCalendarEvent,
+  syncReminderToCalendar,
+} from '@/lib/google-calendar/calendar-reminders';
 
 export type MessageStyle = 'gentle' | 'direct' | 'hype';
 
@@ -30,10 +34,11 @@ export interface UserReminder {
   // 20260811000001_add_reminder_message_style.sql migration hasn't been
   // applied yet) may not have this column populated.
   message_style?: MessageStyle;
-  // Optional for the same reason — rows created before
-  // 20260814000001_add_reminder_cadence.sql may not have it. Defaults to
-  // 'weekly' when absent so existing reminders keep recurring.
+  // CC-15: cadence chosen by the member + the matching Google Calendar event.
+  // Optional for the same migration-ordering reason.
   cadence?: ReminderCadence;
+  calendar_event_id?: string | null;
+  calendar_event_link?: string | null;
 }
 
 /**
@@ -101,11 +106,49 @@ function isMissingMessageStyleColumn(error: { message?: string; code?: string } 
 }
 
 /**
+ * True when a Supabase/PostgREST error indicates the cadence column doesn't
+ * exist yet (migration 20260814000001_reminder_cadence_and_calendar_connections.sql
+ * not yet applied).
+ */
+function isMissingCadenceColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return error.code === 'PGRST204' || (msg.includes('cadence') && msg.includes('column'));
+}
+
+/**
+ * True when a Supabase/PostgREST error indicates the calendar_event_id column
+ * doesn't exist yet (migration 20260814000001_reminder_cadence_and_calendar_connections.sql
+ * not yet applied).
+ */
+function isMissingCalendarEventIdColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return error.code === 'PGRST204' || (msg.includes('calendar_event_id') && msg.includes('column'));
+}
+
+/**
+ * Member's app email, used as a fallback attendee on the calendar event when
+ * the Google account email cannot be resolved.
+ */
+async function getMemberEmail(userId: string): Promise<string | null> {
+  const supabase = createServiceRoleClient();
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('email')
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data?.email ?? null;
+}
+
+/**
  * Create a new reminder for the authenticated user.
  * Enforces max 1 active (unsent) reminder per user.
- * Persists the chosen cadence so the reminder can reschedule a next
- * occurrence when it fires (recurring check-ins, not one-shot).
  * Returns the created reminder or null if one already exists.
+ *
+ * CC-15: when the member has connected their Google Calendar, a matching
+ * recurring event is created (best-effort). Calendar is additive — a missing
+ * connection or a Google API error never fails reminder creation.
  */
 export async function createReminder(
   userId: string,
@@ -138,28 +181,33 @@ export async function createReminder(
     topic,
     remind_at: remindAt.toISOString(),
     is_sent: false,
-    cadence,
   };
 
-  let { data: reminder, error: insertError } = await supabase
-    .from('user_reminders')
-    .insert({ ...basePayload, message_style: messageStyle })
-    .select()
-    .single();
+  // Try column variants in order of richness, falling back only when a
+  // missing-column error (PGRST204) says a column isn't there yet. This keeps
+  // reminder creation working on environments where the message_style and/or
+  // cadence migrations haven't been applied.
+  const payloadVariants: Record<string, unknown>[] = [
+    { ...basePayload, message_style: messageStyle, cadence },
+    { ...basePayload, message_style: messageStyle },
+    { ...basePayload, cadence },
+    basePayload,
+  ];
 
-  if (insertError && isMissingMessageStyleColumn(insertError)) {
-    // The message_style column migration hasn't been applied on this
-    // environment yet — fall back to the base columns so reminder
-    // creation still works. Cadence is still persisted here so recurrence
-    // survives; only the chosen style won't persist until
-    // supabase/migrations/20260811000001_add_reminder_message_style.sql
-    // is applied.
-    logger.warn('user_reminders.message_style column not found — creating reminder without it');
-    ({ data: reminder, error: insertError } = await supabase
-      .from('user_reminders')
-      .insert(basePayload)
-      .select()
-      .single());
+  let reminder: unknown = null;
+  let insertError: { message?: string; code?: string } | null = null;
+
+  for (const variant of payloadVariants) {
+    const { data, error } = await supabase.from('user_reminders').insert(variant).select().single();
+    if (!error) {
+      reminder = data;
+      insertError = null;
+      break;
+    }
+    insertError = error;
+    const missingColumn =
+      isMissingMessageStyleColumn(error) || isMissingCadenceColumn(error);
+    if (!missingColumn) break; // Real error — stop retrying.
   }
 
   if (insertError) {
@@ -167,7 +215,46 @@ export async function createReminder(
     return { reminder: null, error: 'Failed to create reminder' };
   }
 
-  logger.info(`Created reminder ${reminder.id} for user ${userId}, topic: "${topic}"`);
+  logger.info(`Created reminder ${(reminder as UserReminder).id} for user ${userId}, topic: "${topic}"`);
+
+  // CC-15: create the matching Google Calendar event. Additive — never fails
+  // the reminder and never throws.
+  try {
+    const googleEmail = await getMemberEmail(userId);
+    const syncResult = await syncReminderToCalendar({
+      userId,
+      topic,
+      remindAt,
+      cadence,
+      googleEmail,
+    });
+
+    if (syncResult.synced && syncResult.eventId) {
+      const { error: updateError } = await supabase
+        .from('user_reminders')
+        .update({
+          calendar_event_id: syncResult.eventId,
+          calendar_event_link: syncResult.eventLink ?? null,
+        })
+        .eq('id', (reminder as UserReminder).id);
+      if (updateError) {
+        logger.error('Failed to persist calendar event id on reminder', updateError);
+      } else {
+        (reminder as UserReminder).calendar_event_id = syncResult.eventId;
+        (reminder as UserReminder).calendar_event_link = syncResult.eventLink ?? null;
+      }
+    } else if (syncResult.reason && syncResult.reason !== 'no-calendar-connection') {
+      // 'no-calendar-connection' is the normal additive case (no calendar
+      // attached). Any other reason is worth an operational log line.
+      logger.warn(
+        `Calendar sync skipped for reminder ${(reminder as UserReminder).id}: ${syncResult.reason}`
+      );
+    }
+  } catch (err) {
+    // Calendar is additive — a failure here must never surface to the member.
+    logger.error('Calendar sync during reminder creation threw (non-fatal)', err);
+  }
+
   return { reminder: reminder as UserReminder };
 }
 
@@ -210,13 +297,33 @@ export async function cancelReminder(
   // route) by filtering every query on the authenticated caller's userId.
   const supabase = createServiceRoleClient();
 
-  // Verify ownership and that it's not already sent
-  const { data: reminder, error: fetchError } = await supabase
+  // Verify ownership and that it's not already sent.
+  // calendar_event_id is selected so cancellation can also clean up the Google
+  // Calendar event. On environments where the CC-15 migration hasn't been
+  // applied, that column doesn't exist — fall back to the base columns.
+  let reminder: { id: string; is_sent: boolean; calendar_event_id?: string | null } | null = null;
+  let fetchError: { message?: string; code?: string } | null = null;
+
+  const primary = await supabase
     .from('user_reminders')
-    .select('id, is_sent')
+    .select('id, is_sent, calendar_event_id')
     .eq('id', reminderId)
     .eq('user_id', userId)
     .maybeSingle();
+
+  if (primary.error && isMissingCalendarEventIdColumn(primary.error)) {
+    const fallback = await supabase
+      .from('user_reminders')
+      .select('id, is_sent')
+      .eq('id', reminderId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    reminder = (fallback.data as { id: string; is_sent: boolean } | null) ?? null;
+    fetchError = fallback.error ?? null;
+  } else {
+    reminder = primary.data as { id: string; is_sent: boolean; calendar_event_id?: string | null } | null;
+    fetchError = primary.error ?? null;
+  }
 
   if (fetchError || !reminder) {
     return { success: false, error: 'Reminder not found' };
@@ -235,6 +342,14 @@ export async function cancelReminder(
   if (deleteError) {
     logger.error('Failed to cancel reminder', deleteError);
     return { success: false, error: 'Failed to cancel reminder' };
+  }
+
+  // CC-15: remove the matching Google Calendar event (best-effort). The
+  // in-app reminder is already cancelled regardless of calendar availability.
+  try {
+    await deleteReminderCalendarEvent(userId, reminder.calendar_event_id ?? null);
+  } catch (err) {
+    logger.error('Failed to delete calendar event on cancel (non-fatal)', err);
   }
 
   logger.info(`Cancelled reminder ${reminderId} for user ${userId}`);
@@ -330,64 +445,7 @@ export async function sendReminder(reminder: UserReminder): Promise<void> {
   // configured). No monthly cost is ever introduced here (card constraint D5).
   sendReminderEmailLog(reminder);
 
-  // Recurrence: schedule the NEXT occurrence so the reminder fires again
-  // per the chosen cadence (daily/weekly/monthly) instead of being one-shot.
-  // Only while the member's active gate is still open — a deactivated /
-  // cancelled member gets no next occurrence (F-2 / card Verify 4).
-  if (await isMemberActive(reminder.user_id)) {
-    const { error: rescheduleError } = await supabase
-      .from('user_reminders')
-      .insert({
-        user_id: reminder.user_id,
-        topic: reminder.topic,
-        remind_at: nextOccurrenceAt(reminder).toISOString(),
-        is_sent: false,
-        message_style: reminder.message_style ?? 'gentle',
-        cadence: reminder.cadence ?? 'weekly',
-      });
-
-    if (rescheduleError) {
-      logger.error('Failed to schedule next reminder occurrence', rescheduleError);
-    }
-  }
-
   logger.info(`Sent reminder ${reminder.id} to user ${reminder.user_id}, topic: "${reminder.topic}"`);
-}
-
-/**
- * Compute the next occurrence's remind_at: the scheduled time of the
- * occurrence that just fired plus `days(cadence)`. Anchoring on the
- * scheduled time (not "now") preserves the cadence phase, so a weekly
- * reminder set for, say, Monday keeps firing on Mondays regardless of
- * when the cron tick lands.
- */
-function nextOccurrenceAt(reminder: UserReminder): Date {
-  const days = REMINDER_CADENCE_DAYS[reminder.cadence ?? 'weekly'];
-  return new Date(new Date(reminder.remind_at).getTime() + days * 24 * 60 * 60 * 1000);
-}
-
-/**
- * True when the member's active gate is open (user_profiles.status =
- * 'active'). Mirrors the F-2 gate used by getDueReminders, checked again
- * at reschedule time so a deactivated/cancelled member never receives a
- * next occurrence.
- */
-async function isMemberActive(userId: string): Promise<boolean> {
-  const supabase = createServiceRoleClient();
-
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('user_id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (error) {
-    logger.error('Failed to check member active gate', error);
-    return false;
-  }
-
-  return Boolean(data);
 }
 
 /**
