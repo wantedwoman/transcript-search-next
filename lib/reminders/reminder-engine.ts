@@ -30,6 +30,10 @@ export interface UserReminder {
   // 20260811000001_add_reminder_message_style.sql migration hasn't been
   // applied yet) may not have this column populated.
   message_style?: MessageStyle;
+  // Optional for the same reason — rows created before
+  // 20260814000001_add_reminder_cadence.sql may not have it. Defaults to
+  // 'weekly' when absent so existing reminders keep recurring.
+  cadence?: ReminderCadence;
 }
 
 /**
@@ -99,13 +103,16 @@ function isMissingMessageStyleColumn(error: { message?: string; code?: string } 
 /**
  * Create a new reminder for the authenticated user.
  * Enforces max 1 active (unsent) reminder per user.
+ * Persists the chosen cadence so the reminder can reschedule a next
+ * occurrence when it fires (recurring check-ins, not one-shot).
  * Returns the created reminder or null if one already exists.
  */
 export async function createReminder(
   userId: string,
   topic: string,
   remindAt: Date,
-  messageStyle: MessageStyle = 'gentle'
+  messageStyle: MessageStyle = 'gentle',
+  cadence: ReminderCadence = 'weekly'
 ): Promise<{ reminder: UserReminder | null; error?: string }> {
   const supabase = createServiceRoleClient();
 
@@ -131,6 +138,7 @@ export async function createReminder(
     topic,
     remind_at: remindAt.toISOString(),
     is_sent: false,
+    cadence,
   };
 
   let { data: reminder, error: insertError } = await supabase
@@ -142,7 +150,8 @@ export async function createReminder(
   if (insertError && isMissingMessageStyleColumn(insertError)) {
     // The message_style column migration hasn't been applied on this
     // environment yet — fall back to the base columns so reminder
-    // creation still works. The chosen style just won't persist until
+    // creation still works. Cadence is still persisted here so recurrence
+    // survives; only the chosen style won't persist until
     // supabase/migrations/20260811000001_add_reminder_message_style.sql
     // is applied.
     logger.warn('user_reminders.message_style column not found — creating reminder without it');
@@ -321,7 +330,64 @@ export async function sendReminder(reminder: UserReminder): Promise<void> {
   // configured). No monthly cost is ever introduced here (card constraint D5).
   sendReminderEmailLog(reminder);
 
+  // Recurrence: schedule the NEXT occurrence so the reminder fires again
+  // per the chosen cadence (daily/weekly/monthly) instead of being one-shot.
+  // Only while the member's active gate is still open — a deactivated /
+  // cancelled member gets no next occurrence (F-2 / card Verify 4).
+  if (await isMemberActive(reminder.user_id)) {
+    const { error: rescheduleError } = await supabase
+      .from('user_reminders')
+      .insert({
+        user_id: reminder.user_id,
+        topic: reminder.topic,
+        remind_at: nextOccurrenceAt(reminder).toISOString(),
+        is_sent: false,
+        message_style: reminder.message_style ?? 'gentle',
+        cadence: reminder.cadence ?? 'weekly',
+      });
+
+    if (rescheduleError) {
+      logger.error('Failed to schedule next reminder occurrence', rescheduleError);
+    }
+  }
+
   logger.info(`Sent reminder ${reminder.id} to user ${reminder.user_id}, topic: "${reminder.topic}"`);
+}
+
+/**
+ * Compute the next occurrence's remind_at: the scheduled time of the
+ * occurrence that just fired plus `days(cadence)`. Anchoring on the
+ * scheduled time (not "now") preserves the cadence phase, so a weekly
+ * reminder set for, say, Monday keeps firing on Mondays regardless of
+ * when the cron tick lands.
+ */
+function nextOccurrenceAt(reminder: UserReminder): Date {
+  const days = REMINDER_CADENCE_DAYS[reminder.cadence ?? 'weekly'];
+  return new Date(new Date(reminder.remind_at).getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/**
+ * True when the member's active gate is open (user_profiles.status =
+ * 'active'). Mirrors the F-2 gate used by getDueReminders, checked again
+ * at reschedule time so a deactivated/cancelled member never receives a
+ * next occurrence.
+ */
+async function isMemberActive(userId: string): Promise<boolean> {
+  const supabase = createServiceRoleClient();
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('user_id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    logger.error('Failed to check member active gate', error);
+    return false;
+  }
+
+  return Boolean(data);
 }
 
 /**
