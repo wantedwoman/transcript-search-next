@@ -74,12 +74,12 @@ const TEXT_BUDGET = TEXT_COLUMN_HEIGHT - 112;
 const LINE_BOX_FACTOR = 1.06;
 const MAX_FIT_ITERATIONS = 6;
 
-// Slide type configurations
+// Slide type configurations — clean white background per @inspiremany reference
 const SLIDE_CONFIGS: Record<string, { bg: string; accent: string; textColor: string }> = {
-  hook: { bg: '#4D1D57', accent: '#FFD700', textColor: '#FFFFFF' },
-  insight: { bg: '#171117', accent: '#FF7095', textColor: '#FFFFFF' },
-  tip: { bg: '#1A0A1F', accent: '#FF7095', textColor: '#FFFFFF' },
-  cta: { bg: '#4D1D57', accent: '#FFD700', textColor: '#FFFFFF' },
+  hook: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#4D1D57' },
+  insight: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#1A0A1F' },
+  tip: { bg: '#FFFFFF', accent: '#FF7095', textColor: '#1A0A1F' },
+  cta: { bg: '#FFFFFF', accent: '#4D1D57', textColor: '#1A0A1F' },
 };
 
 function slugify(title: string): string {
@@ -89,20 +89,21 @@ function slugify(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-// Fonts are bundled under public/fonts (TTF, static instances of Manrope,
+// Fonts are bundled under public/fonts (TTF, static instances of Manrope + Great Vibes,
 // each well under Satori's 500KB per-font limit) so Satori can embed real
 // glyphs instead of falling back to tofu/missing-glyph boxes.
-let fontsPromise: Promise<{ regular: Buffer; bold: Buffer }> | null = null;
+let fontsPromise: Promise<{ regular: Buffer; bold: Buffer; script: Buffer }> | null = null;
 
-async function loadFonts(): Promise<{ regular: Buffer; bold: Buffer }> {
+async function loadFonts(): Promise<{ regular: Buffer; bold: Buffer; script: Buffer }> {
   if (!fontsPromise) {
     fontsPromise = (async () => {
       const fontsDir = path.join(process.cwd(), 'public', 'fonts');
-      const [regular, bold] = await Promise.all([
+      const [regular, bold, script] = await Promise.all([
         readFile(path.join(fontsDir, 'Manrope-Regular.ttf')),
         readFile(path.join(fontsDir, 'Manrope-Bold.ttf')),
+        readFile(path.join(fontsDir, 'GreatVibes-Regular.ttf')),
       ]);
-      return { regular, bold };
+      return { regular, bold, script };
     })();
   }
   return fontsPromise;
@@ -128,14 +129,16 @@ interface CarouselFontMetrics {
 
 let fontMetricsCache: { regular: CarouselFontMetrics; bold: CarouselFontMetrics } | null = null;
 
-export async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer }): Promise<{
+export async function getCarouselFontMetrics(fonts: { regular: Buffer; bold: Buffer; script: Buffer }): Promise<{
   regular: CarouselFontMetrics;
   bold: CarouselFontMetrics;
+  script: CarouselFontMetrics;
 }> {
   if (!fontMetricsCache) {
     fontMetricsCache = {
       regular: parseFontMetrics(fonts.regular),
       bold: parseFontMetrics(fonts.bold),
+      script: parseFontMetrics(fonts.script),
     };
   }
   return fontMetricsCache;
@@ -392,9 +395,23 @@ export function fitCarouselText(
  * Every text-bearing node is an explicit flex container, per Satori's
  * layout constraints (flexbox only, no implicit block layout).
  */
-function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit) {
+function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFit, logoSrc: string | null = null) {
   const config = SLIDE_CONFIGS[slide.type] || SLIDE_CONFIGS.tip;
   const slideNumber = slide.slide_number || slideIndex + 1;
+  const isCover = slide.type === 'hook';
+
+  // Decorative elements for cover slides (hearts, sparkles)
+  const decorativeElements = isCover ? [
+    createElement('span', {
+      style: { position: 'absolute', top: 140, left: 100, fontSize: 28, opacity: 0.6, transform: 'rotate(-15deg)' },
+    }, '💕'),
+    createElement('span', {
+      style: { position: 'absolute', top: 160, right: 120, fontSize: 24, opacity: 0.5, transform: 'rotate(10deg)' },
+    }, '✨'),
+    createElement('span', {
+      style: { position: 'absolute', top: 220, left: 80, fontSize: 20, opacity: 0.4, transform: 'rotate(5deg)' },
+    }, '💖'),
+  ] : [];
 
   return createElement(
     'div',
@@ -414,6 +431,28 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         overflow: 'hidden',
       },
     },
+    // Logo always present — top-left area
+    createElement(
+      'div',
+      {
+        style: {
+          position: 'absolute',
+          top: 36,
+          left: 60,
+          zIndex: 10,
+        },
+      },
+      logoSrc ? createElement('img', {
+        src: logoSrc,
+        style: {
+          width: 48,
+          height: 48,
+          objectFit: 'contain',
+          opacity: 0.95,
+        },
+      }) : null
+    ),
+    // Decorative accent circles — soft pink/purple
     createElement('div', {
       style: {
         display: 'flex',
@@ -421,9 +460,9 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         width: 400,
         height: 400,
         borderRadius: 999,
-        background: `${config.accent}15`,
-        top: -100,
-        right: -100,
+        background: `${config.accent}10`,
+        top: -140,
+        right: -140,
       },
     }),
     createElement('div', {
@@ -433,20 +472,21 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         width: 300,
         height: 300,
         borderRadius: 999,
-        background: `${config.accent}10`,
+        background: `${config.accent}08`,
         bottom: -80,
         left: -80,
       },
     }),
-    createElement(
+    // Slide type badge — pill, accent border/bg (only on non-cover slides)
+    !isCover ? createElement(
       'div',
       {
         style: {
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          background: `${config.accent}20`,
-          border: `1px solid ${config.accent}40`,
+          background: `${config.accent}15`,
+          border: `1.5px solid ${config.accent}50`,
           borderRadius: 100,
           padding: '8px 20px',
           fontSize: 14,
@@ -458,28 +498,42 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
         },
       },
       slide.type.toUpperCase()
-    ),
+    ) : null,
+    // Pink accent line under badge (content slides only)
+    !isCover ? createElement('div', {
+      style: {
+        width: 60,
+        height: 3,
+        background: config.accent,
+        borderRadius: 2,
+        marginBottom: 32,
+      },
+    }) : null,
+    // Headline — use script font for cover slides
     createElement(
       'div',
       {
         style: {
           display: '-webkit-box',
-          fontSize: fit.headSize,
-          fontWeight: 700,
+          fontSize: isCover ? fit.headSize + 8 : fit.headSize,
+          fontWeight: isCover ? 400 : 700,
+          fontFamily: isCover ? 'Great Vibes' : 'Manrope',
           lineHeight: HEADLINE_LINE_HEIGHT,
           textAlign: 'center',
-          marginBottom: 32,
+          marginBottom: isCover ? 24 : 32,
           maxWidth: HEADLINE_WIDTH,
-          letterSpacing: '-0.02em',
+          letterSpacing: isCover ? '0em' : '-0.02em',
           wordBreak: 'break-word',
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          WebkitLineClamp: fit.headClamp,
+          WebkitLineClamp: isCover ? Math.max(2, fit.headClamp - 1) : fit.headClamp,
+          color: config.textColor,
         },
       },
       slide.headline
     ),
+    // Body
     createElement(
       'div',
       {
@@ -496,10 +550,14 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           WebkitLineClamp: fit.bodyClamp,
+          color: config.textColor,
         },
       },
       slide.body
     ),
+    // Decorative elements (cover only)
+    ...decorativeElements,
+    // Slide counter bottom-right
     createElement(
       'div',
       {
@@ -511,28 +569,30 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
           fontSize: 18,
           fontWeight: 700,
           opacity: 0.3,
+          color: config.textColor,
         },
       },
       `${slideNumber}/5`
     ),
-    createElement(
+    // Swipe CTA for cover slides
+    isCover ? createElement(
       'div',
       {
         style: {
-          display: 'flex',
           position: 'absolute',
-          bottom: 40,
-          left: 60,
+          bottom: 100,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
           fontSize: 16,
-          fontWeight: 700,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
+          fontWeight: 600,
+          letterSpacing: '0.05em',
           color: config.accent,
-          opacity: 0.6,
+          opacity: 0.8,
         },
       },
-      'WANTED Woman'
-    )
+      ['Swipe for more →']
+    ) : null
   );
 }
 
@@ -541,11 +601,11 @@ function buildSlideElement(slide: CarouselSlide, slideIndex: number, fit: TextFi
  * @vercel/og (Satori + resvg). This is safe to call from a Node-runtime
  * route handler on every request (no filesystem writes required).
  */
-export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number): Promise<Buffer> {
+export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number, logoSrc: string | null = null): Promise<Buffer> {
   const fonts = await loadFonts();
   const metrics = await getCarouselFontMetrics(fonts);
   const fit = fitCarouselText(slide.headline, slide.body, metrics.bold, metrics.regular);
-  const element = buildSlideElement(slide, slideIndex, fit);
+  const element = buildSlideElement(slide, slideIndex, fit, logoSrc);
 
   const imageResponse = new ImageResponse(element, {
     width: SLIDE_WIDTH,
@@ -553,6 +613,7 @@ export async function renderSlideToPNG(slide: CarouselSlide, slideIndex: number)
     fonts: [
       { name: 'Manrope', data: fonts.regular, weight: 400, style: 'normal' },
       { name: 'Manrope', data: fonts.bold, weight: 700, style: 'normal' },
+      { name: 'Great Vibes', data: fonts.script, weight: 400, style: 'normal' },
     ],
   });
 
@@ -783,11 +844,12 @@ export async function renderCarouselPNGs(
 
   const slug = slugify(carousel.title);
   const pngFiles: string[] = [];
+  const logoSrc = '/logo.png';
 
   try {
     for (let i = 0; i < carousel.slides.length; i++) {
       const slide = carousel.slides[i];
-      const buffer = await renderSlideToPNG(slide, i);
+      const buffer = await renderSlideToPNG(slide, i, logoSrc);
 
       const filename = `${slug}-slide-${i + 1}.png`;
       const filepath = path.join(dir, filename);
