@@ -133,12 +133,23 @@ export class OpenRouterAnswerGenerator {
     this.model = env.OPENROUTER_MODEL || 'google/gemini-3.1-flash-lite-preview';
   }
 
-  async generateAnswer(question: string, contextChunks: TranscriptChunk[], imageBase64?: string, moodDelivery?: string): Promise<ChatResponse> {
+  async generateAnswer(
+    question: string,
+    contextChunks: TranscriptChunk[],
+    imageBase64?: string,
+    moodDelivery?: string,
+    memberContext?: string
+  ): Promise<ChatResponse> {
     try {
       const prompt = this.buildPrompt(question, contextChunks);
-      const systemPrompt = moodDelivery
-        ? `${COACH_CASS_SYSTEM_PROMPT}\n\n${moodDelivery}`
-        : COACH_CASS_SYSTEM_PROMPT;
+      // CC-03: inject the bounded "About {name}:" member-context block when the
+      // member has saved data. It stays a small, real-data-only hint — never a
+      // history dump — and keeps Coach Cass's voice intact.
+      const systemPrompt = [
+        COACH_CASS_SYSTEM_PROMPT,
+        memberContext ? `\n\n${memberContext}` : '',
+        moodDelivery ? `\n\n${moodDelivery}` : '',
+      ].join('');
 
       const messages: any[] = [
         {

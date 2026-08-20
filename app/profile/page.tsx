@@ -286,6 +286,9 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <h2 className="text-xl font-headline font-bold text-primary">Tell me About You</h2>
           <p className="text-sm font-body text-secondary/60">The more I know, the better I can help.</p>
+          <p className="text-xs font-body text-tertiary/80">
+            Save your profile and your coaching adapts to what you share — no guessing, just you.
+          </p>
 
           {/* Age */}
           <div className="space-y-2">
