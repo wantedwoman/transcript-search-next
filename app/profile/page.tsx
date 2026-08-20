@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import ReminderSetup from '../../components/ReminderSetup';
@@ -22,6 +22,60 @@ interface ReferralData {
   pendingCount: number;
   releasedCount: number;
   paidCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Referral disclosure + hygiene (single source of truth)
+//
+// FTC Endorsement Guides (16 CFR Part 255, 2023): anyone with a material
+// connection to a product must disclose it clearly and conspicuously. In-app
+// commission credit does NOT remove that obligation, so the disclosure must
+// ride along with every shared link/message on the same screen and in the
+// copied text — never hidden behind a toggle.
+// ---------------------------------------------------------------------------
+export const FTC_REFERRAL_DISCLOSURE =
+  'I may earn credit if you join through my link.';
+
+// Affiliate-terms note surfaced in the share UI.
+export const REFERRAL_AFFILIATE_NOTE =
+  'By sharing this link you may earn credit. Required disclosure shown.';
+
+// Referral-hygiene note — minimum qualification: no spam.
+export const REFERRAL_HYGIENE_NOTE =
+  'Share only with people who may genuinely want Coach Cass AI — please don’t spam your link.';
+
+// Self-referral guard message.
+export const SELF_REFERRAL_BLOCKED_MESSAGE =
+  'Self-referrals are blocked: signing up through your own link won’t earn credit.';
+
+// Rate-limit: minimum interval (ms) between share/copy actions.
+const COPY_COOLDOWN_MS = 5000;
+
+// Cookie the signup page writes when a referral link is opened (app/auth/signup/page.tsx).
+const REFERRAL_COOKIE = 'suzy_ref';
+
+/**
+ * Referral-hygiene guard: a referred user must never be the referrer.
+ * Mirrors the server-side block in app/api/auth/signup/route.ts (CC-04).
+ */
+function isSelfReferral(referredEmail: string, referrerEmail: string): boolean {
+  if (!referredEmail || !referrerEmail) return false;
+  return (
+    referredEmail.trim().toLowerCase() === referrerEmail.trim().toLowerCase()
+  );
+}
+
+function getReferralCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${REFERRAL_COOKIE}=([^;]*)`)
+  );
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
 }
 
 const INCOME_OPTIONS = [
@@ -50,16 +104,6 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  // Tracks the auto-dismiss timer for success messages so a new save always
-  // supersedes a pending one (and errors are never silently cleared).
-  const messageTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const clearMessageTimeout = useCallback(() => {
-    if (messageTimeout.current) {
-      clearTimeout(messageTimeout.current);
-      messageTimeout.current = null;
-    }
-  }, []);
 
   const [onboarding, setOnboarding] = useState<OnboardingData>({
     age: '',
@@ -72,6 +116,9 @@ export default function ProfilePage() {
 
   const [referral, setReferral] = useState<ReferralData | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selfReferralBlocked, setSelfReferralBlocked] = useState(false);
+  const [copyCooldown, setCopyCooldown] = useState(false);
+  const lastCopyTime = useRef(0);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -140,6 +187,16 @@ export default function ProfilePage() {
           releasedCount,
           paidCount,
         });
+
+        // UI-level self-referral guard: if the member opened their OWN
+        // referral link, the signup page stored the code in the suzy_ref
+        // cookie. Detect it here and surface the block. Server-side
+        // enforcement lives in app/api/auth/signup/route.ts (CC-04).
+        const storedRef = getReferralCookie();
+        if (storedRef && storedRef === refCode.code) {
+          setSelfReferralBlocked(true);
+          document.cookie = `${REFERRAL_COOKIE}=; path=/; max-age=0; samesite=lax`;
+        }
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -152,26 +209,18 @@ export default function ProfilePage() {
     loadProfile();
   }, [loadProfile]);
 
-  useEffect(() => {
-    return () => clearMessageTimeout();
-  }, [clearMessageTimeout]);
-
   const handleSave = async () => {
     setSaving(true);
     setSuccessMessage('');
     setErrorMessage('');
-    clearMessageTimeout();
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Not signed in');
-      }
+      if (!user) return;
 
-      const ageNum = parseInt(onboarding.age, 10);
       const payload = {
         user_id: user.id,
-        age: onboarding.age && !Number.isNaN(ageNum) ? ageNum : null,
+        age: onboarding.age ? parseInt(onboarding.age) : null,
         profession: onboarding.profession || null,
         income_range: onboarding.income_range || null,
         relationship_status: onboarding.relationship_status || null,
@@ -186,26 +235,20 @@ export default function ProfilePage() {
       if (error) throw error;
 
       setSuccessMessage('Profile saved!');
-      messageTimeout.current = setTimeout(() => setSuccessMessage(''), 4000);
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       console.error('Failed to save profile:', err);
-      // Keep the error visible until the next save attempt so a failure is
-      // never a silent no-op.
-      setErrorMessage('That didn’t save. Please try again.');
+      setErrorMessage('Failed to save. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000);
     } finally {
       setSaving(false);
     }
   };
 
   const handleGenerateReferralCode = async () => {
-    clearMessageTimeout();
-    setSuccessMessage('');
-    setErrorMessage('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Not signed in');
-      }
+      if (!user) return;
 
       // Generate a short, readable code from user id + random
       const code = user.id.substring(0, 4) + Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -220,15 +263,40 @@ export default function ProfilePage() {
       await loadProfile();
     } catch (err) {
       console.error('Failed to generate referral code:', err);
-      // Keep the error visible until the next attempt so it is never silent.
-      setErrorMessage('That didn’t work. Please try again.');
+      setErrorMessage('Failed to generate referral code.');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
-  const handleCopyLink = async () => {
+  const handleCopyLink = async (targetEmail?: string) => {
     if (!referral) return;
+
+    // Referral-hygiene guard — rate-limit share/copy actions.
+    const now = Date.now();
+    if (now - lastCopyTime.current < COPY_COOLDOWN_MS) {
+      setCopyCooldown(true);
+      setTimeout(
+        () => setCopyCooldown(false),
+        COPY_COOLDOWN_MS - (now - lastCopyTime.current)
+      );
+      return;
+    }
+    lastCopyTime.current = now;
+    setCopyCooldown(true);
+    setTimeout(() => setCopyCooldown(false), COPY_COOLDOWN_MS);
+
+    // Referral-hygiene guard — block self-referral at the UI level: the
+    // referred user must never be the referrer (CC-04 enforces this
+    // server-side too).
+    if (targetEmail && isSelfReferral(targetEmail, userEmail)) {
+      setSelfReferralBlocked(true);
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(referral.referralLink);
+      // The FTC disclosure must ride along with the link in the copied message.
+      const shareText = `${referral.referralLink}\n\n${FTC_REFERRAL_DISCLOSURE}`;
+      await navigator.clipboard.writeText(shareText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -286,9 +354,6 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <h2 className="text-xl font-headline font-bold text-primary">Tell me About You</h2>
           <p className="text-sm font-body text-secondary/60">The more I know, the better I can help.</p>
-          <p className="text-xs font-body text-tertiary/80">
-            Save your profile and your coaching adapts to what you share — no guessing, just you.
-          </p>
 
           {/* Age */}
           <div className="space-y-2">
@@ -405,18 +470,45 @@ export default function ProfilePage() {
 
           {referral ? (
             <div className="glass-panel-solid rounded-lg border border-outline-variant/20 p-6 space-y-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p className="text-xs font-label font-semibold uppercase tracking-widest text-secondary/60">Your Referral Link</p>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 bg-surface-container rounded-lg px-4 py-3 text-sm font-body text-on-surface truncate border border-outline-variant/20">
                     {referral.referralLink}
                   </div>
                   <button
-                    onClick={handleCopyLink}
-                    className="px-4 py-3 rounded-lg bg-primary/20 text-primary font-label font-semibold text-sm border border-primary/30 active:scale-95 transition-all hover:bg-primary/30"
+                    onClick={() => handleCopyLink()}
+                    disabled={copyCooldown}
+                    className="px-4 py-3 rounded-lg bg-primary/20 text-primary font-label font-semibold text-sm border border-primary/30 active:scale-95 transition-all hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {copied ? '✓ Copied' : 'Copy'}
+                    {copied ? '✓ Copied' : copyCooldown ? 'Wait…' : 'Copy'}
                   </button>
+                </div>
+
+                {/* FTC Endorsement Guides (16 CFR Part 255) — required disclosure,
+                    adjacent to the link and never hidden behind a toggle. */}
+                <p className="text-xs font-body text-tertiary leading-relaxed border-l-2 border-tertiary/40 pl-3 mt-3">
+                  {FTC_REFERRAL_DISCLOSURE}
+                </p>
+
+                {/* Affiliate-terms note */}
+                <p className="text-[11px] font-body text-secondary/60 leading-relaxed">
+                  {REFERRAL_AFFILIATE_NOTE}
+                </p>
+
+                {/* Referral-hygiene: minimum qualification (no spam) + self-referral block */}
+                <div className="rounded-lg bg-surface-container border border-outline-variant/20 px-4 py-3 space-y-1 mt-2">
+                  <p className="text-[11px] font-body text-secondary/70 leading-relaxed">
+                    {REFERRAL_HYGIENE_NOTE}
+                  </p>
+                  <p className="text-[11px] font-body text-secondary/70 leading-relaxed">
+                    {SELF_REFERRAL_BLOCKED_MESSAGE}
+                  </p>
+                  {selfReferralBlocked && (
+                    <p className="text-[11px] font-label font-semibold uppercase tracking-widest text-error leading-relaxed pt-1">
+                      Self-referral detected — this attempt was blocked.
+                    </p>
+                  )}
                 </div>
               </div>
 
