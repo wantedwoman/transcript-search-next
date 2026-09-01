@@ -50,17 +50,21 @@ export async function POST(request: Request) {
     // Cadence maps to a remindAt Date (daily/weekly/monthly). Falls back to
     // the legacy numeric remindAtDays field, then to 7 days.
     let days: number | null = null;
+    let finalCadence: ReminderCadence | undefined;
     if (cadence && (REMINDER_CADENCES as readonly string[]).includes(cadence)) {
       days = REMINDER_CADENCE_DAYS[cadence as ReminderCadence];
+      finalCadence = cadence as ReminderCadence;
     } else if (typeof remindAtDays === 'number' && remindAtDays >= 1 && remindAtDays <= 30) {
       days = remindAtDays;
+      // Infer a cadence for the calendar event from the legacy day count.
+      finalCadence = remindAtDays <= 1 ? 'daily' : remindAtDays <= 7 ? 'weekly' : 'monthly';
     }
     const finalDays = days ?? 7;
 
     const remindAt = new Date();
     remindAt.setDate(remindAt.getDate() + finalDays);
 
-    const result = await createReminder(user.id, topic.trim(), remindAt, style);
+    const result = await createReminder(user.id, topic.trim(), remindAt, style, finalCadence);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 409 });

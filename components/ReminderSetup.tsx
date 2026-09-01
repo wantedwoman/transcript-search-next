@@ -25,6 +25,17 @@ interface ActiveReminder {
   message_style?: MessageStyle;
 }
 
+interface CalendarStatus {
+  connected: boolean;
+  configured: boolean;
+  connection?: {
+    provider: string;
+    google_email: string | null;
+    calendar_id: string;
+    created_at: string;
+  } | null;
+}
+
 export default function ReminderSetup() {
   const supabase = createClient();
 
@@ -35,6 +46,10 @@ export default function ReminderSetup() {
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [calendar, setCalendar] = useState<CalendarStatus>({ connected: false, configured: false });
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [calendarBusy, setCalendarBusy] = useState(false);
 
   const loadActive = useCallback(async () => {
     try {
@@ -53,9 +68,36 @@ export default function ReminderSetup() {
     }
   }, [supabase]);
 
+  const loadCalendar = useCallback(async () => {
+    setCalendarLoading(true);
+    try {
+      const res = await fetch('/api/suzy/calendar/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      setCalendar(data);
+    } catch {
+      // Silently ignore — the connect/disconnect actions surface real errors.
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadActive();
-  }, [loadActive]);
+    loadCalendar();
+  }, [loadActive, loadCalendar]);
+
+  // Reflect the OAuth callback result (redirected back to /profile?calendar=...).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('calendar');
+    if (result === 'connected') {
+      setStatus({ type: 'success', text: 'Google Calendar connected. Your reminders will appear there too.' });
+      loadCalendar();
+    } else if (result === 'error') {
+      setStatus({ type: 'error', text: 'Could not connect Google Calendar. Please try again.' });
+    }
+  }, [loadCalendar]);
 
   const handleCreate = async () => {
     if (!topic.trim()) return;
@@ -70,7 +112,12 @@ export default function ReminderSetup() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create reminder');
       setTopic('');
-      setStatus({ type: 'success', text: 'Reminder set! I’ll check in with you in the app when it’s time.' });
+      setStatus({
+        type: 'success',
+        text: calendar.connected
+          ? 'Reminder set! It’s on your Google Calendar too, and I’ll check in with you in the app.'
+          : 'Reminder set! I’ll check in with you in the app when it’s time.',
+      });
       setActive(data.reminder);
     } catch (err) {
       setStatus({ type: 'error', text: err instanceof Error ? err.message : 'Failed to create reminder' });
@@ -96,6 +143,37 @@ export default function ReminderSetup() {
       setStatus({ type: 'error', text: err instanceof Error ? err.message : 'Failed to cancel reminder' });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleConnectCalendar = async () => {
+    setCalendarBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/suzy/calendar/auth-url');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start Google Calendar connection');
+      if (!data.url) throw new Error('No connection URL returned');
+      // Navigate to Google's consent screen. The callback redirects back here.
+      window.location.href = data.url;
+    } catch (err) {
+      setStatus({ type: 'error', text: err instanceof Error ? err.message : 'Failed to start connection' });
+      setCalendarBusy(false);
+    }
+  };
+
+  const handleDisconnectCalendar = async () => {
+    setCalendarBusy(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/suzy/calendar/disconnect', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to disconnect calendar');
+      setCalendar({ connected: false, configured: calendar.configured });
+      setStatus({ type: 'success', text: 'Google Calendar disconnected. In-app reminders still work.' });
+    } catch (err) {
+      setStatus({ type: 'error', text: err instanceof Error ? err.message : 'Failed to disconnect calendar' });
+    } finally {
+      setCalendarBusy(false);
     }
   };
 
@@ -196,6 +274,58 @@ export default function ReminderSetup() {
           </button>
         </div>
       )}
+
+      {/* Google Calendar connection */}
+      <div className="glass-panel-solid rounded-lg border border-outline-variant/20 p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-2xl text-tertiary">calendar_month</span>
+          <div>
+            <h3 className="text-lg font-headline font-bold text-primary">Google Calendar (optional)</h3>
+            <p className="text-sm font-body text-secondary/60">
+              Put your check-ins on your calendar too. Events-only access — Coach Cass never reads your
+              contacts or email.
+            </p>
+          </div>
+        </div>
+
+        {calendarLoading ? (
+          <p className="text-sm font-body text-secondary/50">Checking calendar connection...</p>
+        ) : calendar.connected ? (
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="flex items-center gap-2 text-sm font-body text-tertiary">
+                <span className="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_#e9c349]" />
+                Connected
+              </p>
+              <p className="text-sm font-body text-on-surface">
+                {calendar.connection?.google_email || 'Google Calendar'}
+              </p>
+              <p className="text-xs font-body text-secondary/50">
+                New reminders appear as recurring events on your calendar.
+              </p>
+            </div>
+            <button
+              onClick={handleDisconnectCalendar}
+              disabled={calendarBusy}
+              className="shrink-0 px-4 py-2 rounded-lg bg-surface-container border border-outline-variant/20 text-error font-label font-semibold text-sm active:scale-95 transition-all hover:border-error/40 disabled:opacity-50"
+            >
+              {calendarBusy ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleConnectCalendar}
+            disabled={calendarBusy || !calendar.configured}
+            className="w-full py-3 rounded-lg bg-primary/20 text-primary font-label font-semibold uppercase tracking-widest text-sm border border-primary/30 active:scale-95 transition-all hover:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {calendarBusy
+              ? 'Opening Google...'
+              : calendar.configured
+                ? 'Connect Google Calendar'
+                : 'Google Calendar is not configured yet'}
+          </button>
+        )}
+      </div>
 
       {status && (
         <div

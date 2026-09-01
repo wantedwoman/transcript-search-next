@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { getAuthenticatedUser } from '@/lib/supabase/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 
 export async function GET() {
   try {
@@ -10,8 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-    if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+    if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

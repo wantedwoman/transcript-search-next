@@ -11,6 +11,7 @@ import { matchCourse } from '@/lib/course-mapper/match-course';
 import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 import { saveVaultEntry } from '@/lib/vault/vault-engine';
 import { getWelcomeMessage } from '@/lib/first-engagement/sequence';
+import { loadMemberContextBlock } from '@/lib/context/member-context';
 import {
   isHarmRiskQuery,
   findMatchedHarmPattern,
@@ -119,6 +120,16 @@ export async function POST(request: Request) {
       });
     }
 
+    // CC-03: the coach answers know who the member is. Load a bounded block of
+    // the member's real saved context (user_onboarding demographics +
+    // user_patterns / user_insights themes) to personalize coaching.
+    // Returns null when there is no saved data or on any failure — the coach
+    // then falls back to generic coaching (never invents demographics).
+    const authenticatedUser = await getAuthenticatedUser();
+    const memberContext = authenticatedUser
+      ? await loadMemberContextBlock(authenticatedUser.id)
+      : null;
+
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
 
@@ -132,7 +143,8 @@ export async function POST(request: Request) {
         cleanQuery,
         [],
         imageBase64,
-        moodDelivery
+        moodDelivery,
+        memberContext || undefined
       );
     } else {
       const searchResponse = await similaritySearch.search(cleanQuery, 5);
@@ -141,7 +153,8 @@ export async function POST(request: Request) {
         cleanQuery,
         (searchResponse.results || []).map((result: { chunk: TranscriptChunk }) => result.chunk),
         undefined,
-        moodDelivery
+        moodDelivery,
+        memberContext || undefined
       );
     }
 

@@ -1,0 +1,13 @@
+{
+  "name": "Coach Cass AI",
+  "short_name": "Coach Cass",
+  "description": "Relationship coaching for professional women",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171117",
+  "theme_color": "#FF7095",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

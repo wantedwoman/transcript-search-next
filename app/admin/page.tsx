@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient, getAuthenticatedUser } from '@/lib/supabase/server';
+import { ADMIN_EMAILS } from '@/lib/config/admin';
 import Link from 'next/link';
 
 export const metadata = {
@@ -13,8 +14,7 @@ export default async function AdminPage() {
   }
 
   // Admin check — only specific emails can access
-  const adminEmails = ['coach@wantedwoman.com', 'inspiremany@gmail.com'];
-  if (!adminEmails.includes(user.email?.toLowerCase() || '')) {
+  if (!ADMIN_EMAILS.includes(user.email?.toLowerCase() || '')) {
     redirect('/chat');
   }
 
@@ -130,13 +130,31 @@ export default async function AdminPage() {
             </p>
           </Link>
 
-          <div className="bg-white/5 rounded-xl p-8 border border-white/10 opacity-50">
+          <Link
+            href="/admin/referrals"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
             <div className="flex items-center gap-4 mb-3">
-              <span className="material-symbols-outlined text-3xl text-white/30">settings</span>
-              <h2 className="text-xl font-bold text-white/30">Webhook Events</h2>
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">redeem</span>
+              <h2 className="text-xl font-bold">Referral Activity</h2>
             </div>
-            <p className="text-white/30 text-sm">Coming soon — GHL webhook event log.</p>
-          </div>
+            <p className="text-white/60 text-sm">
+              Track who referred whom, commission status, and payouts.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/harm-alerts"
+            className="bg-white/5 hover:bg-white/10 rounded-xl p-8 border border-white/10 transition-colors group"
+          >
+            <div className="flex items-center gap-4 mb-3">
+              <span className="material-symbols-outlined text-3xl text-[#FF7095]">warning</span>
+              <h2 className="text-xl font-bold">Harm Alerts</h2>
+            </div>
+            <p className="text-white/60 text-sm">
+              Review critical safety alerts and acknowledge them.
+            </p>
+          </Link>
         </div>
       </div>
     </div>
