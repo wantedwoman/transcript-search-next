@@ -60,9 +60,10 @@ export async function checkGhlTags(email: string): Promise<{ hasAccess: boolean;
       typeof t === 'string' ? t : t?.name || ''
     ).filter(Boolean);
 
-    // ONLY block if they have the cancellation tag
+    // Block unless they have the active subscriber tag
+    const hasSubscriber = tags.some(t => t.toLowerCase() === 'coach cass ai subscriber');
     const hasCancellation = tags.some(t => t.toLowerCase() === 'coach cass ai cancellation');
-    const hasAccess = !hasCancellation;
+    const hasAccess = hasSubscriber && !hasCancellation;
 
     return { hasAccess, tags };
   } catch (err) {

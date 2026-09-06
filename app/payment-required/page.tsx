@@ -51,25 +51,22 @@ export default function PaymentRequiredPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-white">Your Subscription Needs Attention</h2>
+          <h2 className="text-2xl font-bold text-white">Subscription Required</h2>
           <p className="text-white/60 leading-relaxed">
-            Hey Sis, it looks like your payment method needs updating.
-            Update your card to keep using Coach Cass AI.
+            Hey Sis, Coach Cass AI is a paid service. Subscribe to get unlimited access.
           </p>
         </div>
 
-        {/* Update Payment Button */}
+        {/* Subscribe Button */}
         <div className="space-y-4">
           <a
-            href="https://app.convertandflow.com/v2/location/EhGQpOdCewKAWNlZDRkH/customer-portal"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/checkout"
             className="inline-block w-full bg-[#FF7095] hover:bg-[#E11D69] text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 text-lg"
           >
-            Update Payment Method
+            Subscribe Now — $10/mo or $99/yr
           </a>
           <p className="text-white/40 text-sm">
-            Once you update your card, come back and log in again.
+            After subscribing, you'll be granted access automatically.
           </p>
 
           {/* Back to Login */}
