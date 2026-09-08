@@ -11,8 +11,7 @@ function getSupabaseClient() {
   );
 }
 
-// TODO: Replace with actual payment links created in Convert & Flow dashboard
-// After creating links in CnF, update these URLs:
+// Payment links — update these when you create them in Convert & Flow:
 //   Go to app.convertandflow.com → Payments → Products → [Product] → Create Payment Link
 const SUBSCRIPTION_LINKS = {
   monthly: 'https://app.convertandflow.com/v2/location/EhGQpOdCewKAWNlZDRkH/products/6a9d613343d1d76deaedfeeb',
