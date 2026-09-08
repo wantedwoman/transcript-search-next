@@ -12,6 +12,7 @@ import { getMoodDelivery } from '@/lib/mood/mood-prompts';
 import { saveVaultEntry } from '@/lib/vault/vault-engine';
 import { getWelcomeMessage } from '@/lib/first-engagement/sequence';
 import { loadMemberContextBlock } from '@/lib/context/member-context';
+import { loadUserSummaries, generateConversationSummary, saveConversationSummary } from '@/lib/conversation-memory/generate-summary';
 import {
   isHarmRiskQuery,
   findMatchedHarmPattern,
@@ -121,9 +122,24 @@ export async function POST(request: Request) {
     }
 
     const authenticatedUser = await getAuthenticatedUser();
-    const memberContext = authenticatedUser
+    let memberContext = authenticatedUser
       ? await loadMemberContextBlock(authenticatedUser.id)
       : null;
+
+    // Enhance member context with persistent conversation memory
+    if (authenticatedUser) {
+      const summaries = await loadUserSummaries(authenticatedUser.id, 5);
+      if (summaries.length > 0) {
+        const memoryBlock = `## PAST CONVERSATIONS TO REMEMBER:\n\n${summaries.map(s => `• **${s.summary}**`).join('\n\n')}\n\nCoach Cass should reference these past discussions naturally when relevant — she remembers what they've worked through together.`;
+
+        // Prepend memory to existing context or create new block
+        memberContext = memberContext
+          ? `${memberContext}\n\n${memoryBlock}`
+          : memoryBlock;
+
+        logger.info(`Loaded ${summaries.length} past conversations for persistent memory`);
+      }
+    }
 
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
@@ -441,6 +457,36 @@ async function saveConversationAndGenerateInsights(
         logger.error(`Vault auto-save failed for user ${user.id}`, err);
       }
     })();
+
+    // Fire-and-forget conversation summary generation (only for new conversations)
+    // This creates persistent memory that persists across browser sessions
+    if (!existingConversationId) {
+      (async () => {
+        try {
+          // Get the full conversation history to generate a summary
+          const { data: allMessages } = await supabase
+            .from('conversation_messages')
+            .select('role, content')
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: true });
+
+          if (allMessages && allMessages.length > 0) {
+            const summary = await generateConversationSummary(
+              user.id,
+              conversationId,
+              allMessages.map(m => ({ role: m.role, content: m.content }))
+            );
+
+            if (summary) {
+              await saveConversationSummary(user.id, conversationId, summary.summary, summary.keyTopics);
+              logger.info(`Generated conversation summary for conv ${conversationId}`);
+            }
+          }
+        } catch (err) {
+          logger.error(`Conversation summary generation failed for user ${user.id}`, err);
+        }
+      })();
+    }
 
     logger.info(`Saved conversation ${conversationId} for user ${user.id}`);
   } catch (error) {
