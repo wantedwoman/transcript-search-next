@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkGhlTags } from '@/lib/ghl/check-tags';
 import { createServiceRoleClient } from '@/lib/auth/auto-provision';
 import { logger } from '@/lib/utils/logger';
 
@@ -15,20 +14,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1. Verify the email has the "Coach Cass AI Subscriber" tag in GHL
-    const { hasAccess, tags } = await checkGhlTags(email);
-
-    if (!hasAccess) {
-      return NextResponse.json(
-        {
-          error:
-            'Access by invitation only. Purchase through WANTED Woman to get started.',
-        },
-        { status: 403 }
-      );
-    }
-
-    // 2. Create the Supabase user
+    // 1. Allow signup — paywall check happens at /chat access via middleware Create the Supabase user
     const supabase = createServiceRoleClient();
     const { data: userData, error: createError } =
       await supabase.auth.admin.createUser({
