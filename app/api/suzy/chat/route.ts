@@ -120,11 +120,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // CC-03: the coach answers know who the member is. Load a bounded block of
-    // the member's real saved context (user_onboarding demographics +
-    // user_patterns / user_insights themes) to personalize coaching.
-    // Returns null when there is no saved data or on any failure — the coach
-    // then falls back to generic coaching (never invents demographics).
     const authenticatedUser = await getAuthenticatedUser();
     const memberContext = authenticatedUser
       ? await loadMemberContextBlock(authenticatedUser.id)
@@ -132,6 +127,42 @@ export async function POST(request: Request) {
 
     const similaritySearch = getSimilaritySearch();
     const answerGenerator = getOpenRouterAnswerGenerator();
+
+    // Load recent conversation history for context-aware responses
+    let conversationHistory: Array<{ role: string; content: string }> | undefined;
+    let activeConversationId: string | null = null;
+
+    if (authenticatedUser) {
+      const supabase = createServiceRoleClient();
+
+      // Find the user's most recent conversation
+      const { data: recentConversations } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', authenticatedUser.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentConversations?.[0]) {
+        activeConversationId = recentConversations[0].id;
+
+        // Load recent messages (last 20 for context)
+        const { data: recentMessages } = await supabase
+          .from('conversation_messages')
+          .select('role, content')
+          .eq('conversation_id', activeConversationId)
+          .order('created_at', { ascending: true })
+          .limit(20);
+
+        if (recentMessages && recentMessages.length > 0) {
+          conversationHistory = recentMessages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content,
+          }));
+          logger.info(`Loaded ${conversationHistory.length} messages for conversation memory`);
+        }
+      }
+    }
 
     // Build mood delivery instruction
     const moodDelivery = mode ? getMoodDelivery(mode) : getMoodDelivery('soft-place');
@@ -144,7 +175,8 @@ export async function POST(request: Request) {
         [],
         imageBase64,
         moodDelivery,
-        memberContext || undefined
+        memberContext || undefined,
+        conversationHistory
       );
     } else {
       const searchResponse = await similaritySearch.search(cleanQuery, 5);
@@ -154,12 +186,14 @@ export async function POST(request: Request) {
         (searchResponse.results || []).map((result: { chunk: TranscriptChunk }) => result.chunk),
         undefined,
         moodDelivery,
-        memberContext || undefined
+        memberContext || undefined,
+        conversationHistory
       );
     }
 
     // Try to save conversation and generate insights (fire-and-forget)
-    saveConversationAndGenerateInsights(cleanQuery, chatResponse.answer).catch(() => {
+    // Pass activeConversationId so we reuse existing conversation instead of creating new
+    saveConversationAndGenerateInsights(cleanQuery, chatResponse.answer, activeConversationId || undefined).catch(() => {
       // Silently ignore — conversation saving is non-critical
     });
 
@@ -330,7 +364,8 @@ export async function GET(request: Request) {
  */
 async function saveConversationAndGenerateInsights(
   userQuery: string,
-  assistantAnswer: string
+  assistantAnswer: string,
+  existingConversationId?: string
 ): Promise<void> {
   try {
     // Get authenticated user
@@ -339,21 +374,25 @@ async function saveConversationAndGenerateInsights(
 
     const supabase = createServiceRoleClient();
 
-    // Create a new conversation
-    const { data: conversation, error: convError } = await supabase
-      .from('conversations')
-      .insert({
-        user_id: user.id,
-      })
-      .select('id')
-      .single();
+    let conversationId: string;
 
-    if (convError || !conversation) {
-      logger.error('Failed to create conversation', convError);
-      return;
+    // Reuse existing conversation or create a new one
+    if (existingConversationId) {
+      conversationId = existingConversationId;
+    } else {
+      const { data: conversation, error: convError } = await supabase
+        .from('conversations')
+        .insert({ user_id: user.id })
+        .select('id')
+        .single();
+
+      if (convError || !conversation) {
+        logger.error('Failed to create conversation', convError);
+        return;
+      }
+
+      conversationId = conversation.id;
     }
-
-    const conversationId = conversation.id;
 
     // Save both messages
     const messages = [

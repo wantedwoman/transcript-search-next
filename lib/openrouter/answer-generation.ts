@@ -138,7 +138,8 @@ export class OpenRouterAnswerGenerator {
     contextChunks: TranscriptChunk[],
     imageBase64?: string,
     moodDelivery?: string,
-    memberContext?: string
+    memberContext?: string,
+    conversationHistory?: Array<{ role: string; content: string }>
   ): Promise<ChatResponse> {
     try {
       const prompt = this.buildPrompt(question, contextChunks);
@@ -157,6 +158,11 @@ export class OpenRouterAnswerGenerator {
           content: systemPrompt,
         },
       ];
+
+      // Inject conversation history (last N messages) so Coach Cass remembers context
+      if (conversationHistory && conversationHistory.length > 0) {
+        messages.push(...conversationHistory);
+      }
 
       if (imageBase64) {
         messages.push({
