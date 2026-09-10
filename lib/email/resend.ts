@@ -1,6 +1,8 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 const FROM_EMAIL = 'Coach Cass AI <reset@wantedwoman.com>';
 const SUPPORT_EMAIL = 'coach@wantedwoman.com';
 
@@ -9,6 +11,9 @@ const SUPPORT_EMAIL = 'coach@wantedwoman.com';
  * This bypasses Supabase's default email templates which show "Supabase" branding.
  */
 export async function sendBrandedResetEmail(to: string, token: string): Promise<void> {
+  if (!resend) {
+    throw new Error('RESEND_API_KEY not configured');
+  }
   const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://transcript-search-next.vercel.app'}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
 
   const html = `
@@ -109,6 +114,9 @@ export async function sendBrandedResetEmail(to: string, token: string): Promise<
  * Send a welcome email on signup
  */
 export async function sendWelcomeEmail(to: string, firstName: string): Promise<void> {
+  if (!resend) {
+    throw new Error('RESEND_API_KEY not configured');
+  }
   const html = `
 <!DOCTYPE html>
 <html>
