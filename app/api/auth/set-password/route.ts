@@ -58,11 +58,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Invalidate token
-    await supabase
+    // Invalidate token so the link can only be used once
+    const { error: deleteError } = await supabase
       .from('password_reset_tokens')
       .delete()
       .eq('token', token);
+
+    if (deleteError) {
+      // Password already changed — log so a lingering live token gets noticed.
+      logger.error('Failed to invalidate used reset token', deleteError);
+    }
 
     logger.info(`Password reset successful for user ${resetToken.user_id}`);
 

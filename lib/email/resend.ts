@@ -14,7 +14,7 @@ export async function sendBrandedResetEmail(to: string, token: string): Promise<
   if (!resend) {
     throw new Error('RESEND_API_KEY not configured');
   }
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://transcript-search-next.vercel.app'}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://coachcass.ai'}/auth/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(to)}`;
 
   const html = `
 <!DOCTYPE html>
@@ -156,7 +156,7 @@ export async function sendWelcomeEmail(to: string, firstName: string): Promise<v
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center" style="padding: 16px 0;">
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://transcript-search-next.vercel.app'}/chat" style="display: inline-block; padding: 16px 48px; background: linear-gradient(135deg, #FF7095 0%, #E11D69 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 24px rgba(255, 112, 149, 0.3);">
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://coachcass.ai'}/chat" style="display: inline-block; padding: 16px 48px; background: linear-gradient(135deg, #FF7095 0%, #E11D69 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 8px 24px rgba(255, 112, 149, 0.3);">
                       Start Chatting
                     </a>
                   </td>
